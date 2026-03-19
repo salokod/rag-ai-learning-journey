@@ -1,0 +1,34 @@
+# Environment
+.venv/
+.env
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Data files (may be large)
+*.pdf
+*.csv
+*.parquet
+data/
+
+# Model files
+*.gguf
+*.bin
+models/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Langfuse local
+docker-compose.override.yml

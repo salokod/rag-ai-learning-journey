@@ -1,0 +1,51 @@
+# Core
+ollama>=0.4.0
+openai>=1.0.0
+anthropic>=0.40.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Embeddings & Vector Store
+chromadb>=0.5.0
+sentence-transformers>=3.0.0
+
+# RAG & Orchestration
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-ollama>=0.2.0
+langchain-chroma>=0.2.0
+llama-index>=0.11.0
+
+# Document Processing
+pypdf>=4.0.0
+python-docx>=1.0.0
+beautifulsoup4>=4.12.0
+unstructured>=0.15.0
+
+# Evaluation & Testing (THE BIG ONES)
+ragas>=0.2.0
+deepeval>=1.0.0
+pytest>=8.0.0
+
+# Observability
+langfuse>=2.0.0
+
+# Fine-tuning
+transformers>=4.45.0
+peft>=0.13.0
+datasets>=3.0.0
+accelerate>=1.0.0
+bitsandbytes>=0.44.0; sys_platform == "linux"
+
+# Agents
+langgraph>=0.2.0
+
+# Guardrails
+guardrails-ai>=0.5.0
+
+# Utilities
+pandas>=2.2.0
+numpy>=1.26.0
+rich>=13.0.0
+tqdm>=4.66.0
+matplotlib>=3.8.0
