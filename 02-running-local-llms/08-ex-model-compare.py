@@ -6,7 +6,7 @@ PROMPT = """Write a professional task description for an assembly line operator
 who needs to install a circuit board into a housing unit. Include safety
 requirements and quality checks. Keep it under 100 words."""
 
-models_to_test = ["gemma3:12b", "phi3:mini"]
+models_to_test = ["gemma3:12b", "qwen3:32b"]
 
 results = {}
 
