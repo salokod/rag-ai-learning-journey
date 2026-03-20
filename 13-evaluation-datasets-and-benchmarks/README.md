@@ -214,7 +214,7 @@ Let's run it:
 ```python
 print("Generating synthetic test cases...\n")
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[{"role": "user", "content": generation_prompt}],
     format="json",
     options={"temperature": 0.7},
@@ -268,7 +268,7 @@ Now let's generate expected outputs for the synthetic tasks too. This gives us s
 print("\n--- Generating expected outputs for synthetic tasks ---\n")
 for i, task in enumerate(synthetic[:3]):  # Do 3 to save time
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[
             {"role": "system", "content": "You are a senior manufacturing technical writer. Write 3-5 numbered steps with safety notes and spec references."},
             {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task.get('context', 'N/A')}"},
@@ -357,7 +357,7 @@ def evaluate_output(generated: str, task: dict) -> dict:
 Now the benchmark runner. It takes a system prompt and runs every golden example through it:
 
 ```python
-def run_benchmark(golden_path: str, system_prompt: str, model: str = "llama3.1:8b") -> dict:
+def run_benchmark(golden_path: str, system_prompt: str, model: str = "qwen3:8b") -> dict:
     """Run the benchmark with a given system prompt."""
     with open(golden_path) as f:
         golden = json.load(f)
@@ -530,7 +530,7 @@ def run(prompt_file: str = None):
     passing = 0
     for task in golden:
         response = ollama.chat(
-            model="llama3.1:8b",
+            model="qwen3:8b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task['context']}"},

@@ -24,7 +24,7 @@ Now ask the model for JSON the naive way:
 import ollama
 
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[{"role": "user", "content": "Describe the task 'Inspect hydraulic press seals'. Return as JSON."}],
 )
 print(response["message"]["content"])
@@ -63,7 +63,7 @@ Ollama has a built-in fix. Let's try it:
 
 ```python
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[{"role": "user", "content": "Describe the task 'Inspect hydraulic press seals' as JSON."}],
     format="json",
 )
@@ -95,7 +95,7 @@ Let's combine `format="json"` with a schema in the prompt. Try this:
 
 ```python
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[
         {
             "role": "system",
@@ -310,7 +310,7 @@ class TaskDescription(BaseModel):
 schema = json.dumps(TaskDescription.model_json_schema(), indent=2)
 
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[
         {
             "role": "system",
@@ -424,7 +424,7 @@ def generate_task(task_input: str, max_retries: int = 2) -> TaskDescription | No
 
     for attempt in range(max_retries + 1):
         response = ollama.chat(
-            model="llama3.1:8b",
+            model="qwen3:8b",
             messages=[
                 {
                     "role": "system",

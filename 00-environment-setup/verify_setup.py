@@ -32,8 +32,8 @@ try:
     model_names = [m.model for m in models.models]
     print(f"\n✓ Ollama running with {len(model_names)} model(s): {model_names[:5]}")
 
-    if not any("llama" in m.lower() for m in model_names):
-        print("  ⚠️  No Llama model found. Run: ollama pull llama3.1:8b")
+    if not any("qwen3:8b" in m.lower() for m in model_names):
+        print("  ⚠️  No qwen3:8b model found. Run: ollama pull qwen3:8b")
 except Exception as e:
     print(f"\n✗ Ollama not reachable: {e}")
     print("  Run: ollama serve")

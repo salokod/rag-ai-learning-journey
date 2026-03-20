@@ -258,13 +258,13 @@ Before we set up fine-tuning, let's understand what LoRA does. This is important
 Here is the core idea:
 
 ```python
-# A model like Llama 3.1 8B has about 8 billion parameters.
-# Full fine-tuning means updating ALL 8 billion. That requires:
-total_params = 8_000_000_000
+# A model like Qwen 3 32B has about 32 billion parameters.
+# Full fine-tuning means updating ALL 32 billion. That requires:
+total_params = 32_000_000_000
 bytes_per_param_full = 4  # float32
 full_memory_gb = (total_params * bytes_per_param_full) / (1024**3)
 print(f"Full fine-tuning memory: {full_memory_gb:.0f} GB")
-# That's ~32 GB just for the model weights, plus optimizer states = ~100+ GB total.
+# That's ~128 GB just for the model weights, plus optimizer states = ~400+ GB total.
 # Your M4 Pro has 48 GB. Not going to work.
 ```
 
@@ -290,13 +290,13 @@ print(f"Reduction:       {reduction:.2%} of the original")
 Run that. You will see that LoRA trains less than 1% of the parameters in each layer. Across the whole model:
 
 ```python
-# Typical LoRA setup for an 8B model
-lora_params = 8_000_000  # ~8 million trainable
-total_params = 8_000_000_000
+# Typical LoRA setup for a 32B model
+lora_params = 32_000_000  # ~32 million trainable
+total_params = 32_000_000_000
 ratio = lora_params / total_params
 print(f"\nLoRA trains {lora_params:,} out of {total_params:,} parameters")
 print(f"That is {ratio:.3%} of the model")
-print(f"Memory needed: ~8-16 GB (fits on your M4 Pro with room to spare)")
+print(f"Memory needed: ~24-32 GB (fits on your M4 Pro with room to spare)")
 ```
 
 Think of it this way. You have a veteran machinist who knows everything about running a lathe. You do not need to retrain them from scratch to make parts for your company. You just need to teach them YOUR part numbering system, YOUR documentation style, YOUR inspection procedures. That is LoRA -- you are not retraining the whole model, just teaching it your specific habits.
@@ -324,7 +324,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 # Why TinyLlama? 1.1B params = fast training, low memory.
-# For production, you would use Llama 3.1 8B or Phi-3.
+# For production, you would use Qwen 3 32B or a similar full-sized model.
 # But for learning the process, smaller is better.
 
 print(f"Loading {MODEL_NAME}...")
@@ -516,7 +516,7 @@ for approach_name, system_prompt in approaches.items():
     approach_scores = []
     for task in golden:
         response = ollama.chat(
-            model="llama3.1:8b",
+            model="qwen3:32b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task['context']}"},
@@ -611,7 +611,7 @@ print("If no -- you need more/better training data, or the model is too small.")
 ## Takeaways
 
 1. **RAG is for knowledge, fine-tuning is for style** -- know which problem you are solving
-2. **LoRA trains less than 1% of parameters** -- instead of 8 billion, you train 8 million, and it fits on your MacBook
+2. **LoRA trains less than 1% of parameters** -- instead of 32 billion, you train 32 million, and it fits on your MacBook
 3. **Data quality matters more than quantity** -- 50 expert-reviewed examples beats 5,000 sloppy ones
 4. **Always evaluate before AND after** -- use Module 13's benchmark to prove fine-tuning helped
 5. **Start with prompts + RAG** -- in most cases that gets you 90% of the way; fine-tune for the last 10%

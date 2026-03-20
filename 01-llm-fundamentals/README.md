@@ -3,7 +3,7 @@
 **Time:** ~60 minutes
 **What you'll learn:** How LLMs generate text, what tokens are, what context windows and temperature do, and why any of this matters for your manufacturing project.
 
-**Prerequisites:** Module 00 complete, Ollama running, `llama3.1:8b` pulled.
+**Prerequisites:** Module 00 complete, Ollama running, `qwen3:8b` pulled.
 
 ---
 
@@ -14,7 +14,7 @@ Let's not start with theory. Let's start by doing.
 Open your terminal and run this:
 
 ```bash
-ollama run llama3.1:8b "What is 2+2?"
+ollama run qwen3:8b "What is 2+2?"
 ```
 
 You just sent a question to a Large Language Model running on your machine, and it answered. No internet, no API key, no subscription.
@@ -22,13 +22,13 @@ You just sent a question to a Large Language Model running on your machine, and 
 Now try this one:
 
 ```bash
-ollama run llama3.1:8b "What is the capital of France?"
+ollama run qwen3:8b "What is the capital of France?"
 ```
 
 Easy. It knows facts. Now let's try something more interesting:
 
 ```bash
-ollama run llama3.1:8b "Write a one-sentence job task description for a machine operator who inspects weld joints."
+ollama run qwen3:8b "Write a one-sentence job task description for a machine operator who inspects weld joints."
 ```
 
 Look at that -- it generated a professional-sounding task description. But here's the important question: **how did it do that?**
@@ -48,13 +48,13 @@ That's it. Every impressive thing you've seen an LLM do -- writing code, answeri
 Let's watch this in action. Run this:
 
 ```bash
-ollama run llama3.1:8b "Complete this sentence with exactly 5 words: The operator must inspect the"
+ollama run qwen3:8b "Complete this sentence with exactly 5 words: The operator must inspect the"
 ```
 
 Run it again:
 
 ```bash
-ollama run llama3.1:8b "Complete this sentence with exactly 5 words: The operator must inspect the"
+ollama run qwen3:8b "Complete this sentence with exactly 5 words: The operator must inspect the"
 ```
 
 Did you get the same completion both times? Probably something similar, maybe not identical. We'll explore why in a bit (spoiler: temperature).
@@ -62,7 +62,7 @@ Did you get the same completion both times? Probably something similar, maybe no
 Now try giving it a more specific starting point:
 
 ```bash
-ollama run llama3.1:8b "Complete this sentence with exactly 5 words: The welder must verify the"
+ollama run qwen3:8b "Complete this sentence with exactly 5 words: The welder must verify the"
 ```
 
 Notice how changing "operator" to "welder" and "inspect" to "verify" shifts what the model predicts next? The model learned patterns from massive amounts of text. It knows that welders typically verify things like "joint integrity" or "weld penetration depth," while generic operators might inspect "finished parts" or "assembly line output."
@@ -80,7 +80,7 @@ A token is a chunk of text -- sometimes a whole word, sometimes part of a word, 
 Run this:
 
 ```bash
-ollama run llama3.1:8b "Break the word 'manufacturing' into syllables."
+ollama run qwen3:8b "Break the word 'manufacturing' into syllables."
 ```
 
 The model can do that because it sees "manufacturing" as something like: `["man", "uf", "act", "uring"]` -- roughly 4 tokens. Short common words like "the" or "is" are usually 1 token each.
@@ -130,15 +130,15 @@ This is one of the most practical concepts you'll learn. Temperature controls ho
 Let's see it in action. Run this exact command three times:
 
 ```bash
-ollama run llama3.1:8b "Write one sentence describing a weld inspection task."
+ollama run qwen3:8b "Write one sentence describing a weld inspection task."
 ```
 
 ```bash
-ollama run llama3.1:8b "Write one sentence describing a weld inspection task."
+ollama run qwen3:8b "Write one sentence describing a weld inspection task."
 ```
 
 ```bash
-ollama run llama3.1:8b "Write one sentence describing a weld inspection task."
+ollama run qwen3:8b "Write one sentence describing a weld inspection task."
 ```
 
 You probably got somewhat different answers each time. That's because Ollama uses a default temperature above zero -- the model has some randomness in its choices.
@@ -154,7 +154,7 @@ prompt = "Write one sentence describing a weld inspection task."
 print("=== Temperature 0.0 (deterministic) ===")
 for i in range(3):
     r = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[{"role": "user", "content": prompt}],
         options={"temperature": 0.0},
     )
@@ -180,7 +180,7 @@ prompt = "Write one sentence describing a weld inspection task."
 print("=== Temperature 1.5 (very creative) ===")
 for i in range(3):
     r = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[{"role": "user", "content": prompt}],
         options={"temperature": 1.5},
     )
@@ -206,7 +206,7 @@ temps = [0.0, 0.3, 0.7, 1.0, 1.5]
 
 for temp in temps:
     r = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[{"role": "user", "content": prompt}],
         options={"temperature": temp},
     )
@@ -241,7 +241,7 @@ prompt = "Write one sentence describing a weld inspection task."
 
 for top_p in [0.1, 0.5, 0.9]:
     r = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[{"role": "user", "content": prompt}],
         options={"top_p": top_p, "temperature": 0.8},
     )
@@ -263,18 +263,18 @@ Every LLM has a limit on how much text it can "see" at once. This is the **conte
 
 Think of it like a desk. You can only spread out so many documents before things start falling off the edge. The context window is the size of that desk.
 
-For `llama3.1:8b`, the context window is 128K tokens by default, but in practice, Ollama often defaults to a smaller window for speed. Let's see what this means concretely.
+For `qwen3:8b`, the context window is 128K tokens by default, but in practice, Ollama often defaults to a smaller window for speed. Let's see what this means concretely.
 
 Run this:
 
 ```bash
-ollama run llama3.1:8b "I'm going to tell you a secret code: BLUE-FALCON-42. Remember it. What's 2+2?"
+ollama run qwen3:8b "I'm going to tell you a secret code: BLUE-FALCON-42. Remember it. What's 2+2?"
 ```
 
 It answers the math question. Now ask:
 
 ```bash
-ollama run llama3.1:8b "What was the secret code I told you?"
+ollama run qwen3:8b "What was the secret code I told you?"
 ```
 
 It has no idea. **Why?** Because each `ollama run` command is a completely separate conversation. The model has no memory between calls. Every time you send a request, the model only sees what you include in that specific request.
@@ -287,14 +287,14 @@ import ollama
 
 # First call: give it information
 r1 = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[{"role": "user", "content": "Remember: the spec number is WPS-201."}],
 )
 print(f"Response 1: {r1['message']['content'].strip()[:80]}")
 
 # Second call: ask about that information
 r2 = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[{"role": "user", "content": "What spec number did I just mention?"}],
 )
 print(f"Response 2: {r2['message']['content'].strip()[:80]}")
@@ -318,7 +318,7 @@ messages = [
     {"role": "user", "content": "What spec number did I just mention?"},
 ]
 
-r = ollama.chat(model="llama3.1:8b", messages=messages)
+r = ollama.chat(model="qwen3:8b", messages=messages)
 print(f"Response: {r['message']['content'].strip()[:80]}")
 ```
 
@@ -350,7 +350,7 @@ import ollama
 def generate(prompt, temperature=0.0, top_p=1.0):
     """Generate a response with specific settings."""
     r = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[{"role": "user", "content": prompt}],
         options={"temperature": temperature, "top_p": top_p},
     )
@@ -424,7 +424,7 @@ Before moving on, try a few experiments. No scripts needed -- just terminal one-
 **1. Ask it something it can't know:**
 
 ```bash
-ollama run llama3.1:8b "What is specification WPS-9999-XYZ at Acme Manufacturing?"
+ollama run qwen3:8b "What is specification WPS-9999-XYZ at Acme Manufacturing?"
 ```
 
 It will make something up confidently. This is called "hallucination" -- the model generates plausible-sounding text even when it doesn't have real information. This is a huge reason why RAG matters: you ground the model's answers in your actual documents.
@@ -432,7 +432,7 @@ It will make something up confidently. This is called "hallucination" -- the mod
 **2. Ask it to follow a format:**
 
 ```bash
-ollama run llama3.1:8b "List exactly 3 safety hazards of MIG welding. Use numbered list format."
+ollama run qwen3:8b "List exactly 3 safety hazards of MIG welding. Use numbered list format."
 ```
 
 LLMs are generally good at following formatting instructions. You'll use this a lot in Module 04 (Structured Output).
@@ -440,13 +440,13 @@ LLMs are generally good at following formatting instructions. You'll use this a 
 **3. Ask it something ambiguous:**
 
 ```bash
-ollama run llama3.1:8b "Describe the process."
+ollama run qwen3:8b "Describe the process."
 ```
 
 Vague input = vague output. Compare that to:
 
 ```bash
-ollama run llama3.1:8b "Describe the process of performing a dye penetrant test on a stainless steel weld joint."
+ollama run qwen3:8b "Describe the process of performing a dye penetrant test on a stainless steel weld joint."
 ```
 
 Night and day difference. The specificity of your prompt matters enormously.

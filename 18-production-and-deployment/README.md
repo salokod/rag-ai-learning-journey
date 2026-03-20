@@ -130,7 +130,7 @@ async def query_kb(req: QueryRequest):
     source_ids = results["ids"][0]
 
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:32b",
         messages=[
             {"role": "system", "content": "Answer using only the context. Cite sources."},
             {"role": "user", "content": f"Context:\n{context}\n\nQ: {req.question}"},
@@ -374,7 +374,7 @@ from datetime import datetime
 
 class CostTracker:
     PRICING_PER_1M = {
-        "llama3.1:8b": {"input": 0.00, "output": 0.00},
+        "qwen3:32b": {"input": 0.00, "output": 0.00},
         "gpt-4o": {"input": 2.50, "output": 10.00},
         "gpt-4o-mini": {"input": 0.15, "output": 0.60},
         "claude-sonnet-4": {"input": 3.00, "output": 15.00},
@@ -417,7 +417,7 @@ tracker = CostTracker()
 # After ollama.chat returns:
 input_tokens = len(req.question) // 4   # rough estimate
 output_tokens = len(answer) // 4
-tracker.track("llama3.1:8b", input_tokens, output_tokens, purpose="rag_query")
+tracker.track("qwen3:32b", input_tokens, output_tokens, purpose="rag_query")
 ```
 
 Add a stats endpoint:
@@ -467,7 +467,7 @@ async def query_kb(req: QueryRequest, request: Request):
 
     try:
         response = ollama.chat(
-            model="llama3.1:8b",
+            model="qwen3:32b",
             messages=[
                 {"role": "system", "content": "Answer using only the context. Cite sources."},
                 {"role": "user", "content": f"Context:\n{context}\n\nQ: {req.question}"},
@@ -617,7 +617,7 @@ class RateLimiter:
 # --- Cost Tracker ---
 class CostTracker:
     PRICING_PER_1M = {
-        "llama3.1:8b": {"input": 0.00, "output": 0.00},
+        "qwen3:32b": {"input": 0.00, "output": 0.00},
         "gpt-4o": {"input": 2.50, "output": 10.00},
         "claude-sonnet-4": {"input": 3.00, "output": 15.00},
     }
@@ -709,7 +709,7 @@ async def query_kb_endpoint(req: QueryRequest, request: Request):
     # Generate
     try:
         response = ollama.chat(
-            model="llama3.1:8b",
+            model="qwen3:32b",
             messages=[
                 {"role": "system", "content": "Answer using only the context. Cite sources."},
                 {"role": "user", "content": f"Context:\n{context}\n\nQ: {req.question}"},
@@ -721,7 +721,7 @@ async def query_kb_endpoint(req: QueryRequest, request: Request):
         # Track tokens
         input_tokens = len(req.question) // 4
         output_tokens = len(answer) // 4
-        tracker.track("llama3.1:8b", input_tokens, output_tokens, "rag_query")
+        tracker.track("qwen3:32b", input_tokens, output_tokens, "rag_query")
 
     except Exception:
         # Graceful degradation

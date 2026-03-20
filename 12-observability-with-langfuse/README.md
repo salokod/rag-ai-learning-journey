@@ -104,7 +104,7 @@ That is the setup. Now let's write one function and decorate it:
 def describe_task(task_name: str) -> str:
     """Generate a short task description."""
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[
             {"role": "system", "content": "Write a 2-sentence manufacturing task description."},
             {"role": "user", "content": task_name},
@@ -168,7 +168,7 @@ import ollama
 def describe_task(task_name: str) -> str:
     """Generate a short task description."""
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[
             {"role": "system", "content": "Write a 2-sentence manufacturing task description."},
             {"role": "user", "content": task_name},
@@ -251,7 +251,7 @@ def generate_answer(question: str, context_docs: list) -> str:
     """Generate an answer using retrieved context."""
     context_str = "\n".join(context_docs)
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[
             {"role": "system", "content": "Answer using ONLY the provided context. Cite document IDs."},
             {"role": "user", "content": f"Context:\n{context_str}\n\nQuestion: {question}"},
@@ -378,7 +378,7 @@ def generate_from_managed_prompt(task_name: str, context: str) -> str:
     compiled = prompt.compile(task_name=task_name, context=context)
 
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[{"role": "user", "content": compiled}],
         options={"temperature": 0.0},
     )
@@ -443,7 +443,7 @@ Now, here is the key part. Inside an `@observe()` function, you can use `langfus
 def generate_and_score(task_name: str) -> dict:
     """Generate a task description and score it."""
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[
             {"role": "system", "content": "Write a manufacturing task description with numbered steps, safety notes, and spec references."},
             {"role": "user", "content": f"Task: {task_name}"},
@@ -560,7 +560,7 @@ def generate(question: str, context_docs: list) -> str:
 
     context_str = "\n".join(context_docs)
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[
             {"role": "system", "content": system_msg},
             {"role": "user", "content": f"Context:\n{context_str}\n\nQuestion: {question}"},
@@ -609,7 +609,7 @@ def monitored_rag_query(question: str) -> dict:
     langfuse_context.update_current_trace(
         metadata={
             "source_ids": retrieved["ids"],
-            "model": "llama3.1:8b",
+            "model": "qwen3:8b",
             "pipeline_version": "v1",
         }
     )

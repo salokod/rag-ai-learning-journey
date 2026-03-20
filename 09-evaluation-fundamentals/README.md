@@ -190,7 +190,7 @@ import json
 
 def judge_clarity(text):
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[
             {
                 "role": "system",
@@ -253,7 +253,7 @@ Return JSON:
 
 def judge_full(text):
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[
             {"role": "system", "content": JUDGE_PROMPT},
             {"role": "user", "content": text},
@@ -353,7 +353,7 @@ def compare_versions(task, version_a, version_b):
         task=task, version_a=version_a, version_b=version_b
     )
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[{"role": "user", "content": prompt}],
         format="json",
         options={"temperature": 0.0},
@@ -421,7 +421,7 @@ import re
 class TaskDescriptionEvaluator:
     """Combined heuristic + LLM evaluation pipeline."""
 
-    def __init__(self, model="llama3.1:8b"):
+    def __init__(self, model="qwen3:8b"):
         self.model = model
 
     def heuristic_score(self, text):
