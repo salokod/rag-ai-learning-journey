@@ -258,13 +258,13 @@ Before we set up fine-tuning, let's understand what LoRA does. This is important
 Here is the core idea:
 
 ```python
-# A model like Qwen 3 32B has about 32 billion parameters.
-# Full fine-tuning means updating ALL 32 billion. That requires:
-total_params = 32_000_000_000
+# A model like Llama 3.3 70B has about 70 billion parameters.
+# Full fine-tuning means updating ALL 70 billion. That requires:
+total_params = 70_000_000_000
 bytes_per_param_full = 4  # float32
 full_memory_gb = (total_params * bytes_per_param_full) / (1024**3)
 print(f"Full fine-tuning memory: {full_memory_gb:.0f} GB")
-# That's ~128 GB just for the model weights, plus optimizer states = ~400+ GB total.
+# That's ~280 GB just for the model weights, plus optimizer states = ~800+ GB total.
 # Your M4 Pro has 48 GB. Not going to work.
 ```
 
@@ -324,7 +324,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 # Why TinyLlama? 1.1B params = fast training, low memory.
-# For production, you would use Qwen 3 32B or a similar full-sized model.
+# For production, you would use Llama 3.3 70B or a similar full-sized model.
 # But for learning the process, smaller is better.
 
 print(f"Loading {MODEL_NAME}...")
@@ -516,7 +516,7 @@ for approach_name, system_prompt in approaches.items():
     approach_scores = []
     for task in golden:
         response = ollama.chat(
-            model="qwen3:32b",
+            model="llama3.3:70b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task['context']}"},

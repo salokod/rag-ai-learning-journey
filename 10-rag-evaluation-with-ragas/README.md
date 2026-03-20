@@ -47,7 +47,7 @@ No errors? Good. Let's set up the local models Ragas will use as its judge:
 # Ragas needs an LLM (for judging) and embeddings (for similarity)
 # We use Ollama so everything stays local -- no API keys needed
 judge_llm = LangchainLLMWrapper(
-    ChatOllama(model="qwen3:8b", temperature=0.0)
+    ChatOllama(model="gemma3:12b", temperature=0.0)
 )
 judge_embeddings = LangchainEmbeddingsWrapper(
     OllamaEmbeddings(model="nomic-embed-text")
@@ -229,7 +229,7 @@ from ragas.embeddings import LangchainEmbeddingsWrapper
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 judge_llm = LangchainLLMWrapper(
-    ChatOllama(model="qwen3:8b", temperature=0.0)
+    ChatOllama(model="gemma3:12b", temperature=0.0)
 )
 judge_embeddings = LangchainEmbeddingsWrapper(
     OllamaEmbeddings(model="nomic-embed-text")
@@ -336,7 +336,7 @@ from ragas.embeddings import LangchainEmbeddingsWrapper
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 judge_llm = LangchainLLMWrapper(
-    ChatOllama(model="qwen3:8b", temperature=0.0)
+    ChatOllama(model="gemma3:12b", temperature=0.0)
 )
 judge_embeddings = LangchainEmbeddingsWrapper(
     OllamaEmbeddings(model="nomic-embed-text")
@@ -484,7 +484,7 @@ def rag_query(question):
 
     context_str = "\n".join(context_docs)
     response = ollama.chat(
-        model="qwen3:8b",
+        model="gemma3:12b",
         messages=[
             {
                 "role": "system",
@@ -530,7 +530,7 @@ for q in test_questions:
 
 # --- Evaluate ---
 judge_llm = LangchainLLMWrapper(
-    ChatOllama(model="qwen3:8b", temperature=0.0)
+    ChatOllama(model="gemma3:12b", temperature=0.0)
 )
 judge_embeddings = LangchainEmbeddingsWrapper(
     OllamaEmbeddings(model="nomic-embed-text")

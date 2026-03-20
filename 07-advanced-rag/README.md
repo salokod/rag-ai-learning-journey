@@ -163,7 +163,7 @@ Sometimes the user's query is vague or uses different words than the documents. 
 def expand_query(original: str) -> list[str]:
     """Use LLM to generate multiple search queries from one question."""
     response = ollama.chat(
-        model="qwen3:8b",
+        model="gemma3:12b",
         messages=[
             {
                 "role": "system",
@@ -255,7 +255,7 @@ def rag_with_expansion(question: str) -> dict:
     context = "\n".join(f"- {doc_id}: {info['doc']}" for doc_id, info in top_docs)
 
     response = ollama.chat(
-        model="qwen3:8b",
+        model="gemma3:12b",
         messages=[
             {"role": "user", "content": f"Based on:\n{context}\n\nAnswer: {question}"},
         ],
@@ -316,7 +316,7 @@ def rerank(query: str, documents: list[str], top_k: int = 3) -> list[dict]:
 
     for doc in documents:
         response = ollama.chat(
-            model="qwen3:8b",
+            model="gemma3:12b",
             messages=[
                 {
                     "role": "system",
@@ -420,7 +420,7 @@ def advanced_rag(question: str) -> dict:
     # Step 4: Generate
     context = "\n\n".join(f"- {r['doc']}" for r in reranked)
     response = ollama.chat(
-        model="qwen3:8b",
+        model="gemma3:12b",
         messages=[
             {
                 "role": "system",
@@ -450,7 +450,7 @@ print("=== Basic RAG ===")
 basic = collection.query(query_texts=[question], n_results=2)
 basic_context = "\n".join(basic["documents"][0])
 basic_response = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[{"role": "user", "content": f"Based on:\n{basic_context}\n\nAnswer: {question}"}],
     options={"temperature": 0.0},
 )
