@@ -17,20 +17,20 @@ Open your terminal and run:
 ollama list
 ```
 
-What do you see? You should get a table showing models you've already pulled. Look for `qwen3:8b` -- that's your workhorse for this journey.
+What do you see? You should get a table showing models you've already pulled. Look for `gemma3:12b` -- that's your workhorse for this journey.
 
 If it's there, great. If not:
 
 ```bash
-ollama pull qwen3:8b
+ollama pull gemma3:12b
 ```
 
-This downloads about 5GB. On your M4 Pro with 48GB RAM, this model fits easily -- it uses about 5GB when running.
+This downloads about 8GB. On your M4 Pro with 48GB RAM, this model fits easily -- it uses about 8GB when running.
 
 ### Step 2: Talk to it
 
 ```bash
-ollama run qwen3:8b
+ollama run gemma3:12b
 ```
 
 You're now in interactive chat mode. You've got a blinking cursor. Let's try something from your world:
@@ -39,7 +39,7 @@ You're now in interactive chat mode. You've got a blinking cursor. Let's try som
 What are the 3 most common weld defects in structural steel fabrication?
 ```
 
-Look at the response. Notice how it gives you a pretty reasonable answer? That's a 32-billion-parameter model running *entirely on your laptop*. No internet needed, no API key, no bill at the end of the month.
+Look at the response. Notice how it gives you a pretty reasonable answer? That's a 12-billion-parameter model running *entirely on your laptop*. No internet needed, no API key, no bill at the end of the month.
 
 ### Step 3: Try something harder
 
@@ -88,7 +88,7 @@ Ask it the exact same question:
 Write a task description for a manufacturing operator who needs to inspect incoming steel plates for surface defects.
 ```
 
-Compare this output to what qwen3:8b gave you. Notice the difference? The smaller model (3.8B parameters) is faster but the output is usually less detailed, less professional, and more likely to miss important things like safety requirements or documentation steps.
+Compare this output to what gemma3:12b gave you. Notice the difference? The smaller model (3.8B parameters) is faster but the output is usually less detailed, less professional, and more likely to miss important things like safety requirements or documentation steps.
 
 Type `/bye` to exit.
 
@@ -109,7 +109,7 @@ Create a file called `try_chat.py` in this module's directory:
 import ollama
 
 response = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[
         {"role": "user", "content": "Name 3 types of non-destructive testing used in manufacturing."}
     ],
@@ -137,7 +137,7 @@ Now let's tell the model *who it is*. Edit your file:
 import ollama
 
 response = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[
         {"role": "system", "content": "You are a manufacturing process engineer. Be concise and technical."},
         {"role": "user", "content": "Name 3 types of non-destructive testing used in manufacturing."},
@@ -158,7 +158,7 @@ There's another way to call Ollama -- raw text completion with no chat structure
 import ollama
 
 result = ollama.generate(
-    model="qwen3:8b",
+    model="gemma3:12b",
     prompt="Complete this sentence: The operator shall inspect each weld joint by",
 )
 
@@ -178,7 +178,7 @@ When a model generates a long response, you don't have to wait for the whole thi
 import ollama
 
 stream = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[
         {"role": "user", "content": "List 5 common safety hazards in a machine shop. One sentence each."}
     ],
@@ -212,7 +212,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[
         {"role": "system", "content": "You are a technical writer for manufacturing documentation."},
         {"role": "user", "content": "Write a safety precaution for operating a hydraulic press."},
@@ -223,7 +223,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-Run it. The response comes from your local `qwen3:8b`, but the code looks *exactly* like it would for calling OpenAI's GPT-4.
+Run it. The response comes from your local `gemma3:12b`, but the code looks *exactly* like it would for calling OpenAI's GPT-4.
 
 ### Why does this matter?
 
@@ -232,7 +232,7 @@ Think about it this way: you build your manufacturing tool using this `openai` c
 ```python
 # Local (Ollama):
 client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
-response = client.chat.completions.create(model="qwen3:8b", ...)
+response = client.chat.completions.create(model="gemma3:12b", ...)
 
 # Cloud (OpenAI):
 client = OpenAI(api_key="sk-your-real-key-here")
@@ -259,7 +259,7 @@ prompt = "Describe the process of TIG welding aluminum in exactly 2 sentences."
 
 for temp in [0.0, 0.5, 1.0, 1.5]:
     response = ollama.chat(
-        model="qwen3:8b",
+        model="gemma3:12b",
         messages=[{"role": "user", "content": prompt}],
         options={"temperature": temp},
     )
@@ -286,7 +286,7 @@ What if you want to cap how much the model writes?
 import ollama
 
 response = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[{"role": "user", "content": "Explain lockout/tagout procedures."}],
     options={"num_predict": 50},
 )
@@ -309,7 +309,7 @@ prompt = "List 10 steps for a machine startup checklist."
 
 for penalty in [1.0, 1.2, 1.5]:
     response = ollama.chat(
-        model="qwen3:8b",
+        model="gemma3:12b",
         messages=[{"role": "user", "content": prompt}],
         options={"temperature": 0.3, "repeat_penalty": penalty},
     )
@@ -341,16 +341,16 @@ Your M4 Pro with 48GB RAM can run some seriously capable models. Here's your che
 | Model | Params | RAM Used | Speed on M4 Pro | Quality | When to Use |
 |-------|--------|----------|-----------------|---------|-------------|
 | `phi3:mini` | 3.8B | ~2GB | Very fast | Basic | Quick experiments, testing code logic |
-| `qwen3:8b` | 8B | ~5GB | Fast | Good | **Daily learning and development (modules 00–13)** |
-| `qwen3:32b` | 32B | ~20GB | Moderate | Excellent | Higher quality for advanced modules (14+) |
+| `gemma3:12b` | 12B | ~8GB | Fast | Good | **Daily learning and development (modules 00–13)** |
+| `llama3.3:70b` | 70B | ~42GB | Moderate | Excellent | Higher quality for advanced modules (14+) |
 | `llama4:scout` | 109B (MoE) | ~30GB | Slow | Excellent | Best local quality (mixture of experts) |
 
-**Recommendation:** Use `qwen3:8b` for all exercises in modules 00–13. It's fast, has no extended thinking overhead, and is more than sufficient for learning exercises. When you reach modules 14+, switch to `qwen3:32b` for the extra quality those advanced topics benefit from.
+**Recommendation:** Use `gemma3:12b` for all exercises in modules 00–13. It's fast, has no extended thinking overhead, and is more than sufficient for learning exercises. When you reach modules 14+, switch to `llama3.3:70b` for the extra quality those advanced topics benefit from.
 
 Want to try the larger model for comparison?
 
 ```bash
-ollama pull qwen3:32b
+ollama pull llama3.3:70b
 ```
 
 The larger model produces higher quality output but is noticeably slower. Try it on the same manufacturing prompt later and compare.
@@ -372,7 +372,7 @@ PROMPT = """Write a professional task description for an assembly line operator
 who needs to install a circuit board into a housing unit. Include safety
 requirements and quality checks. Keep it under 100 words."""
 
-models_to_test = ["qwen3:8b", "phi3:mini"]
+models_to_test = ["gemma3:12b", "phi3:mini"]
 
 results = {}
 
@@ -421,8 +421,8 @@ print("  - Which one included safety requirements?")
 print("  - Which one sounds like it belongs in a real work instruction?")
 print("  - Is the faster model 'good enough' for your use case?")
 print("\nThere's no single right answer. It depends on what you need.")
-print("For learning and iteration: fast is better (qwen3:8b or phi3:mini).")
-print("For quality output: bigger is usually better (qwen3:32b for modules 14+).")
+print("For learning and iteration: fast is better (gemma3:12b or phi3:mini).")
+print("For quality output: bigger is usually better (llama3.3:70b for modules 14+).")
 ```
 
 Run it:

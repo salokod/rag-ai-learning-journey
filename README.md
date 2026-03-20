@@ -18,13 +18,12 @@ Every module teaches you a capability **and** how to evaluate that capability. T
 
 ## Your Hardware
 
-- **MacBook M4 Pro, 48GB RAM** -- plenty for running local LLMs up to ~32B parameters
+- **MacBook M4 Pro, 48GB RAM** -- plenty for running local LLMs up to 70B parameters
 - **Ollama** as the primary local LLM runtime
 - **Recommended models**:
-  - **Qwen 3 8B** -- strong all-around, great structured output
-  - **Llama 4 Scout** -- Meta's latest, good reasoning
-  - **Llama 3.1 8B** -- reliable workhorse, well-tested
-  - **Qwen 3 32B (Q4)** -- fits in 48GB RAM, significantly better quality when you need it
+  - **Gemma 3 12B** (`gemma3:12b`) -- Google's Gemma 3 model, course workhorse for modules 00–13
+  - **Llama 3.3 70B** (`llama3.3:70b`) -- Meta's latest Llama model, recommended for modules 14+
+  - **Llama 4 Scout** -- Meta's newest architecture, good reasoning
   - **Mistral 7B** -- fast and lightweight
 - No GPU server needed until fine-tuning (Module 14), and even then we have local options
 

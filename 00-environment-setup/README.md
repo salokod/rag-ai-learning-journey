@@ -95,10 +95,10 @@ This is the fun part. You're about to download an actual Large Language Model to
 Run this:
 
 ```bash
-ollama pull qwen3:8b
+ollama pull gemma3:12b
 ```
 
-This downloads Alibaba's Qwen 3 model with 8 billion parameters. It's about 5GB, so it will take a minute or two depending on your connection.
+This downloads Google's Gemma 3 model with 12 billion parameters, about 8GB, so it will take a minute or two depending on your connection.
 
 While it downloads, here's what's happening: Ollama is pulling a "quantized" (compressed) version of the model. The full model would be much larger, but quantization shrinks it down to fit comfortably in memory while keeping most of the quality. Your 48GB machine handles this easily.
 
@@ -108,12 +108,12 @@ When it finishes, let's make sure it worked:
 ollama list
 ```
 
-You should see `qwen3:8b` in the list now. Notice the size column -- around 5GB.
+You should see `gemma3:12b` in the list now. Notice the size column -- around 8GB.
 
 Let's give it a spin. Run this:
 
 ```bash
-ollama run qwen3:8b "Say hello in one sentence."
+ollama run gemma3:12b "Say hello in one sentence."
 ```
 
 You just ran an LLM on your own hardware. No internet needed, no API key, no usage fees. The model processed your request entirely on your M4 Pro's GPU.
@@ -121,7 +121,7 @@ You just ran an LLM on your own hardware. No internet needed, no API key, no usa
 **Try another one:**
 
 ```bash
-ollama run qwen3:8b "What are the three main types of welding?"
+ollama run gemma3:12b "What are the three main types of welding?"
 ```
 
 See how fast that was? That's the M4 Pro's Metal GPU at work.
@@ -130,15 +130,9 @@ See how fast that was? That's the M4 Pro's Metal GPU at work.
 
 ## Step 4: A note on other models
 
-For modules 00–13 (fundamentals through evaluation), `qwen3:8b` is your workhorse. It's fast, has no extended thinking overhead, and is more than sufficient for the exercises in these modules.
+For modules 00–13 (fundamentals through evaluation), `gemma3:12b` is the course workhorse. It's fast, produces high-quality output, and is more than sufficient for the exercises in these modules.
 
-As you get more comfortable, you might want to try other models. Here are a couple worth knowing about:
-
-```bash
-ollama pull qwen3:32b
-```
-
-Qwen 3 32B is the larger sibling -- higher quality output, but slower and uses more memory. Since you downloaded the course earlier, `qwen3:32b` is likely already on your machine. **It's recommended for modules 14 and later** (fine-tuning, agents, orchestration, production, and the capstone), where the extra quality is worth the wait.
+For modules 14 and later (fine-tuning, agents, orchestration, production, and the capstone), `llama3.3:70b` is recommended. It's already downloaded on your machine. The extra quality is worth the wait for those advanced topics.
 
 ```bash
 ollama pull llama4:scout
@@ -149,9 +143,8 @@ Llama 4 Scout is Meta's newest model architecture. It uses a "mixture of experts
 You do NOT need to pull `llama4:scout` right now. But it's good to know your options.
 
 **How to think about model sizes on your machine:**
-- 8B parameter models (~5GB) -- fast, no thinking overhead, great for learning exercises
-- 32B parameter models (~20GB) -- excellent quality, recommended for modules 14+
-- 70B+ models -- won't fit well, skip these for now
+- 12B parameter models (~8GB) -- fast, great for learning exercises (modules 00–13)
+- 70B parameter models (~42GB) -- excellent quality, recommended for modules 14+
 
 ---
 
@@ -225,10 +218,10 @@ pip install chromadb
 
 Then run the verify script again.
 
-**If you see "No Qwen model found":**
+**If you see "No Gemma model found":**
 
 ```bash
-ollama pull qwen3:8b
+ollama pull gemma3:12b
 ```
 
 **If everything passes:** you're done with setup. Every tool you need for the entire learning journey is installed and working.
@@ -259,7 +252,7 @@ Here's what you just accomplished:
 
 - **Python virtual environment** -- your isolated workspace for this project
 - **Ollama running locally** -- an LLM engine using your M4 Pro's GPU, no cloud needed
-- **qwen3:8b downloaded** -- a real 8-billion-parameter model on your machine
+- **gemma3:12b downloaded** -- a real 12-billion-parameter model on your machine
 - **All Python packages installed** -- ready for every module in the journey
 - **Verification script passing** -- everything confirmed working
 

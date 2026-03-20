@@ -265,7 +265,7 @@ The retrieve method:
 
 ```python
 class TaskDescriptionGenerator:
-    def __init__(self, collection, model="qwen3:32b"):
+    def __init__(self, collection, model="llama3.3:70b"):
         self.collection = collection
         self.model = model
 
@@ -417,7 +417,7 @@ import ollama
 
 
 class TaskDescriptionEvaluator:
-    def __init__(self, model="qwen3:32b"):
+    def __init__(self, model="llama3.3:70b"):
         self.model = model
 
     def heuristic_eval(self, text):
@@ -739,7 +739,7 @@ from stage4_guardrails import ManufacturingGuardrails
 
 
 class ManufacturingTaskSystem:
-    def __init__(self, model="qwen3:32b"):
+    def __init__(self, model="llama3.3:70b"):
         print("Initializing system...")
         self.kb = build_knowledge_base()
         self.generator = TaskDescriptionGenerator(self.kb, model)

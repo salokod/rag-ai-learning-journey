@@ -91,7 +91,7 @@ Question: {question}
 Answer:"""
 
 response = ollama.chat(
-    model="qwen3:32b",
+    model="llama3.3:70b",
     messages=[{"role": "user", "content": prompt}],
     options={"temperature": 0.0},
 )
@@ -129,7 +129,7 @@ That's a lot of imports. But watch what happens next:
 
 ```python
 # Set up model and embeddings -- one line each
-llm = ChatOllama(model="qwen3:32b", temperature=0.0)
+llm = ChatOllama(model="llama3.3:70b", temperature=0.0)
 embeddings = OllamaEmbeddings(model="nomic-embed-text")
 ```
 
@@ -203,7 +203,7 @@ In LangChain, you change ONE line:
 
 ```python
 # Instead of:
-# llm = ChatOllama(model="qwen3:32b", temperature=0.0)
+# llm = ChatOllama(model="llama3.3:70b", temperature=0.0)
 
 # You'd write:
 # from langchain_openai import ChatOpenAI
@@ -237,7 +237,7 @@ from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.ollama import OllamaEmbedding
 
 # Configure globally -- LlamaIndex uses a Settings object
-Settings.llm = Ollama(model="qwen3:32b", temperature=0.0, request_timeout=120)
+Settings.llm = Ollama(model="llama3.3:70b", temperature=0.0, request_timeout=120)
 Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text")
 ```
 
@@ -296,11 +296,11 @@ Plain code:
     # No setup -- just call ollama.chat() and ollama.embed() directly
 
 LangChain:
-    llm = ChatOllama(model="qwen3:32b")
+    llm = ChatOllama(model="llama3.3:70b")
     embeddings = OllamaEmbeddings(model="nomic-embed-text")
 
 LlamaIndex:
-    Settings.llm = Ollama(model="qwen3:32b")
+    Settings.llm = Ollama(model="llama3.3:70b")
     Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text")
 
 
@@ -328,7 +328,7 @@ Plain code:
     q_emb = ollama.embed(model="nomic-embed-text", input=question)["embeddings"][0]
     results = collection.query(query_embeddings=[q_emb], n_results=2)
     context = "\\n".join(results["documents"][0])
-    response = ollama.chat(model="qwen3:32b", messages=[...])
+    response = ollama.chat(model="llama3.3:70b", messages=[...])
     answer = response["message"]["content"]
 
 LangChain:

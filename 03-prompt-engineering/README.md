@@ -18,7 +18,7 @@ Create a file and run it:
 import ollama
 
 response = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[
         {"role": "user", "content": "Write a task description for: Inspect incoming raw steel plates for surface defects"}
     ],
@@ -56,7 +56,7 @@ Instead of talking to a generic AI, let's tell it who it is:
 import ollama
 
 response = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[
         {"role": "system", "content": "You are a manufacturing technical writer."},
         {"role": "user", "content": "Write a task description for: Inspect incoming raw steel plates for surface defects"},
@@ -90,7 +90,7 @@ You write task descriptions that:
 - End with a quality check or sign-off step"""
 
 response = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": "Write a task description for: Inspect incoming raw steel plates for surface defects"},
@@ -137,7 +137,7 @@ Now write a description in the same format for:
 Task: Inspect incoming raw steel plates for surface defects"""
 
 response = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[{"role": "user", "content": few_shot_prompt}],
     options={"temperature": 0.1},
 )
@@ -190,7 +190,7 @@ Now write a description for:
 Task: Replace worn conveyor belt rollers"""
 
 response = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
@@ -225,7 +225,7 @@ think through these questions:
 Show your thinking, then write the final task description."""
 
 response = ollama.chat(
-    model="qwen3:8b",
+    model="gemma3:12b",
     messages=[
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": "Write a task description for: Set up CNC lathe for shaft machining run"},
@@ -288,7 +288,7 @@ results = []
 
 for version, config in PROMPT_VERSIONS.items():
     response = ollama.chat(
-        model="qwen3:8b",
+        model="gemma3:12b",
         messages=[
             {"role": "system", "content": config["system"]},
             {"role": "user", "content": test_input},
@@ -401,7 +401,7 @@ def generate_task_description(task_name, department, equipment, specifications):
     )
 
     response = ollama.chat(
-        model="qwen3:8b",
+        model="gemma3:12b",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
@@ -469,7 +469,7 @@ Try changing "Warehouse" to "Clean Room" for the forklift task. What changes in 
 Paste one of the generated descriptions back INTO the system prompt as an example. Does the consistency improve?
 
 **Try a different model:**
-Change `model="qwen3:8b"` to `model="phi3:mini"`. How does the smaller model handle the same structured prompt? What breaks?
+Change `model="gemma3:12b"` to `model="phi3:mini"`. How does the smaller model handle the same structured prompt? What breaks?
 
 **Change one rule at a time:**
 Remove the "8th-grade reading level" constraint. Run it. Does the language get more complex? Add it back. This is how you learn what each constraint actually does.
