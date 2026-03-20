@@ -1,23 +1,46 @@
 # AI & RAG Learning Journey
 
-A hands-on, comprehensive learning path from LLM fundamentals to production-grade AI systems with rigorous evaluation. Built for a MacBook M4 Pro (48GB RAM) — everything runs locally.
+This isn't a textbook. It's a hands-on workshop.
+
+You'll start every module by running something small. Then you'll poke at it, change things, see what breaks, and build up from there. By the end of each module, you'll have built something real -- not just read about it.
+
+The goal: build a production-grade AI system that generates manufacturing task descriptions, grounded in your company's actual SOPs and specifications, with evaluation that proves it works and guardrails that catch it when it doesn't.
 
 ## Who This Is For
 
-You're a developer or technical professional who needs to confidently build, evaluate, and deploy LLM-powered systems in a professional environment. You need to know not just how to get an LLM to generate content, but how to **prove** it's generating *good* content — and catch it when it isn't.
+You're a developer or technical professional who needs to confidently build, evaluate, and deploy LLM-powered systems. You need to know not just how to get an LLM to generate content, but how to **prove** it's generating *good* content -- and catch it when it isn't.
 
 ## The Core Philosophy
 
 > "If you can't measure it, you can't improve it."
 
-Every module teaches you a capability **and** how to evaluate that capability. Testing isn't a separate phase — it's woven into everything. By the end, you'll be able to walk into a meeting and say "the AI-generated task descriptions are 23% more consistent than the manually written ones, and here's the evaluation framework that proves it."
+Every module teaches you a capability **and** how to evaluate that capability. Testing isn't a separate phase -- it's woven into everything. By the end, you'll be able to walk into a meeting and say "the AI-generated task descriptions are 23% more consistent than the manually written ones, and here's the evaluation framework that proves it."
 
 ## Your Hardware
 
-- **MacBook M4 Pro, 48GB RAM** — plenty for running local LLMs up to ~32B parameters
+- **MacBook M4 Pro, 48GB RAM** -- plenty for running local LLMs up to ~32B parameters
 - **Ollama** as the primary local LLM runtime
-- **Recommended models**: Qwen 3 32B (Q4), Llama 3.3 8B, Mistral 7B
+- **Recommended models**:
+  - **Qwen 3 8B** -- strong all-around, great structured output
+  - **Llama 4 Scout** -- Meta's latest, good reasoning
+  - **Llama 3.1 8B** -- reliable workhorse, well-tested
+  - **Qwen 3 32B (Q4)** -- fits in 48GB RAM, significantly better quality when you need it
+  - **Mistral 7B** -- fast and lightweight
 - No GPU server needed until fine-tuning (Module 14), and even then we have local options
+
+## How Each Module Works
+
+Every module follows an interactive, workshop-style format:
+
+1. **Start small.** Run a tiny command or a few lines of code. See what happens.
+2. **Explain inline.** Right after each step, you'll learn what just happened and why it matters.
+3. **Build up gradually.** Each step adds one concept on top of what you just did.
+4. **Try, break, fix.** You'll be prompted to change things, test edge cases, and see what breaks.
+5. **Bigger exercises at the end.** Once you understand the pieces, you'll combine them into something complete.
+
+Code comes in small pieces (3-10 lines at a time), not giant blocks. You'll see phrases like "run this", "what do you see?", "notice how...", and "what happens if..." throughout.
+
+The tone is conversational. Think of it as pair programming with someone who's done this before.
 
 ## Learning Path Overview
 
@@ -43,7 +66,7 @@ Every module teaches you a capability **and** how to evaluate that capability. T
 | [08](./08-document-processing/) | Document Processing | PDF/DOCX ingestion pipeline |
 
 ### Phase 3: Evaluation & Testing (Modules 9-13)
-*THE critical skill — prove your system works and catch regressions*
+*THE critical skill -- prove your system works and catch regressions*
 
 | Module | Topic | What You'll Build |
 |--------|-------|-------------------|
@@ -71,17 +94,7 @@ Every module teaches you a capability **and** how to evaluate that capability. T
 
 | Module | Topic | What You'll Build |
 |--------|-------|-------------------|
-| [19](./19-capstone-manufacturing-tasks/) | **Capstone: Manufacturing Task Descriptions** | Full production system: RAG + evaluation + style matching + monitoring |
-
-## How Each Module Works
-
-Every module follows the same structure:
-
-1. **Concepts** — What you need to understand, explained plainly
-2. **Environment** — Any new tools/packages for this module
-3. **Exercises** — Short, working code examples (15-30 min each)
-4. **Takeaways** — What you should now be able to do
-5. **Setting the Stage** — What's coming next and why it matters
+| [19](./19-capstone-manufacturing-tasks/) | **Capstone: Manufacturing Task Descriptions** | Full production system: RAG + evaluation + guardrails + monitoring |
 
 ## Quick Start
 
@@ -111,23 +124,23 @@ cat 00-environment-setup/README.md
 
 Check off modules as you complete them:
 
-- [ ] 00 - Environment Setup
-- [ ] 01 - LLM Fundamentals
-- [ ] 02 - Running Local LLMs
-- [ ] 03 - Prompt Engineering
-- [ ] 04 - Structured Output
-- [ ] 05 - Embeddings & Vector Stores
-- [ ] 06 - RAG Fundamentals
-- [ ] 07 - Advanced RAG
-- [ ] 08 - Document Processing
-- [ ] 09 - Evaluation Fundamentals
-- [ ] 10 - RAG Evaluation with Ragas
-- [ ] 11 - Testing with DeepEval
-- [ ] 12 - Observability with Langfuse
-- [ ] 13 - Evaluation Datasets & Benchmarks
-- [ ] 14 - Fine-tuning
-- [ ] 15 - Agents & Tool Use
-- [ ] 16 - Guardrails & Safety
-- [ ] 17 - Orchestration Frameworks
+- [x] 00 - Environment Setup
+- [x] 01 - LLM Fundamentals
+- [x] 02 - Running Local LLMs
+- [x] 03 - Prompt Engineering
+- [x] 04 - Structured Output
+- [x] 05 - Embeddings & Vector Stores
+- [x] 06 - RAG Fundamentals
+- [x] 07 - Advanced RAG
+- [x] 08 - Document Processing
+- [x] 09 - Evaluation Fundamentals
+- [x] 10 - RAG Evaluation with Ragas
+- [x] 11 - Testing with DeepEval
+- [x] 12 - Observability with Langfuse
+- [x] 13 - Evaluation Datasets & Benchmarks
+- [x] 14 - Fine-tuning
+- [x] 15 - Agents & Tool Use
+- [x] 16 - Guardrails & Safety
+- [x] 17 - Orchestration Frameworks
 - [ ] 18 - Production & Deployment
 - [ ] 19 - Capstone: Manufacturing Task Descriptions
