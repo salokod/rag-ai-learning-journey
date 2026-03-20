@@ -1,108 +1,224 @@
 # Module 12: Observability with Langfuse
 
 ## Goal
-Set up production-grade LLM observability using Langfuse — the open-source alternative to Galileo. Track every LLM call, manage prompts, debug failures, and monitor quality over time.
+Set up Langfuse -- the open-source alternative to Galileo -- to see everything your LLM system is doing. Trace calls, manage prompts, track quality over time.
 
 ---
 
-## Concepts
+## Why Observability?
 
-### What Is LLM Observability?
+Think about it this way. You have a CNC machine on your floor. It has gauges, readouts, alarm lights. You can see spindle speed, feed rate, coolant temp, tool wear -- all in real time. You would never run that machine blind.
 
-In traditional software, you have logs, metrics, and traces. LLM applications need the same, plus:
-- **What prompt was sent?** (exact text, version)
-- **What context was retrieved?** (RAG documents)
-- **What did the model output?** (the full response)
-- **How long did it take?** (latency breakdown)
-- **How much did it cost?** (token counts)
-- **Was the output good?** (quality scores)
+But right now, your LLM pipeline? It is a black box. Something goes in, something comes out. If the output is bad, you have no idea where it went wrong. Was it the retrieval? The prompt? The model having a bad day?
 
-### Langfuse = Open-Source Galileo
-
-| Feature | Langfuse | Galileo |
-|---------|----------|---------|
-| **License** | MIT (open source) | Proprietary |
-| **Self-hosted** | Yes (Docker) | No (cloud only) |
-| **Tracing** | Full LLM call tracing | Full tracing |
-| **Prompt management** | Version-controlled prompts | Prompt lab |
-| **Evaluation** | Integrates with Ragas/DeepEval | Built-in evaluation |
-| **Cost** | Free (self-hosted) | Enterprise pricing |
-| **Best for** | Teams wanting control | Enterprise with budget |
-
-### What You'll Track
-
-```
-┌─────────────────────────────────────────────────┐
-│                  LANGFUSE DASHBOARD              │
-│                                                   │
-│  Traces: 1,247 today                             │
-│  Avg Latency: 2.3s                               │
-│  Avg Quality Score: 0.84                         │
-│  Cost: $0.00 (local Ollama)                      │
-│                                                   │
-│  ┌──────────────────────────────────┐            │
-│  │ Trace: "task-desc-gen-001"       │            │
-│  │  ├── Retrieve (0.1s)            │            │
-│  │  │   └── 3 docs from ChromaDB   │            │
-│  │  ├── Generate (1.8s)            │            │
-│  │  │   └── llama3.1:8b, 245 tokens│            │
-│  │  └── Evaluate (0.5s)            │            │
-│  │      └── Quality: 0.87          │            │
-│  └──────────────────────────────────┘            │
-└─────────────────────────────────────────────────┘
-```
+Langfuse is the dashboard for your LLM system. It gives you the gauges.
 
 ---
 
-## Environment Setup
+## Setting Up Langfuse
 
-### Option A: Langfuse Cloud (Quick Start)
+You have two options. Pick whichever works for you.
 
-1. Sign up at https://langfuse.com (free tier available)
-2. Create a project, get your API keys
-3. Add to your `.env`:
+### Option A: Langfuse Cloud (quickest -- 2 minutes)
+
+1. Go to https://cloud.langfuse.com and sign up (free tier, no credit card)
+2. Create a new project -- call it something like "manufacturing-rag"
+3. Go to Settings > API Keys and create a key pair
+
+You will get two keys. Add them to your `.env`:
+
 ```
-LANGFUSE_PUBLIC_KEY=pk-lf-...
-LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_PUBLIC_KEY=pk-lf-your-key-here
+LANGFUSE_SECRET_KEY=sk-lf-your-key-here
 LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
-### Option B: Self-Hosted (Full Control)
+### Option B: Self-Hosted with Docker (full control)
 
 ```bash
-# Clone and run Langfuse locally with Docker
 git clone https://github.com/langfuse/langfuse.git
 cd langfuse
 docker compose up -d
-
-# Langfuse UI will be at http://localhost:3000
-# Create an account and project, get API keys
 ```
 
----
+Open http://localhost:3000, create an account, create a project, grab your keys. Same `.env` format but with:
 
-## Exercise 1: Tracing Your RAG Pipeline
+```
+LANGFUSE_HOST=http://localhost:3000
+```
+
+### Install the SDK
+
+```bash
+pip install langfuse
+```
+
+Let's verify the connection works. Try this:
 
 ```python
-# 12-observability-with-langfuse/ex1_tracing.py
-"""Add Langfuse tracing to your RAG pipeline."""
-
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
 from langfuse import Langfuse
+
+langfuse = Langfuse()
+print(langfuse.auth_check())
+```
+
+Run it:
+
+```bash
+python -c "
+from dotenv import load_dotenv; load_dotenv()
+from langfuse import Langfuse
+print(Langfuse().auth_check())
+"
+```
+
+You should see `True`. If you get an error, double-check your `.env` keys.
+
+---
+
+## Exercise 1: Your First Traced Function
+
+Langfuse SDK v3 (released June 2025) uses the `@observe` decorator. This is the simplest way to trace -- you just decorate a function and Langfuse captures everything automatically.
+
+Let's start with something dead simple.
+
+```python
+# 12-observability-with-langfuse/ex1_first_trace.py
+"""Your first Langfuse trace -- one decorator, one function."""
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from langfuse.decorators import observe
+import ollama
+```
+
+That is the setup. Now let's write one function and decorate it:
+
+```python
+@observe()
+def describe_task(task_name: str) -> str:
+    """Generate a short task description."""
+    response = ollama.chat(
+        model="llama3.1:8b",
+        messages=[
+            {"role": "system", "content": "Write a 2-sentence manufacturing task description."},
+            {"role": "user", "content": task_name},
+        ],
+        options={"temperature": 0.0},
+    )
+    return response["message"]["content"]
+```
+
+That is it. The `@observe()` decorator tells Langfuse: "trace this function -- capture its name, inputs, outputs, and timing."
+
+Now call it:
+
+```python
+result = describe_task("Torque check on Frame #4200 bolts")
+print(result)
+```
+
+Run the file. You will see the LLM output in your terminal like normal. But now go open your Langfuse dashboard.
+
+**Go to your dashboard now. See that trace?**
+
+That is your function call. Click on it. You will see:
+- The function name (`describe_task`)
+- The input (`"Torque check on Frame #4200 bolts"`)
+- The output (the full generated text)
+- How long it took
+- A timestamp
+
+One decorator. That is all it took.
+
+Let's call it a few more times so you have more data to look at:
+
+```python
+tasks = [
+    "Inspect weld joints on Assembly A",
+    "Replace hydraulic seals on 200-ton press",
+    "Calibrate digital caliper per SOP-CAL-003",
+]
+
+for task in tasks:
+    result = describe_task(task)
+    print(f"\n--- {task} ---")
+    print(result)
+```
+
+Here is the complete file:
+
+```python
+# 12-observability-with-langfuse/ex1_first_trace.py
+"""Your first Langfuse trace -- one decorator, one function."""
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from langfuse.decorators import observe
+import ollama
+
+
+@observe()
+def describe_task(task_name: str) -> str:
+    """Generate a short task description."""
+    response = ollama.chat(
+        model="llama3.1:8b",
+        messages=[
+            {"role": "system", "content": "Write a 2-sentence manufacturing task description."},
+            {"role": "user", "content": task_name},
+        ],
+        options={"temperature": 0.0},
+    )
+    return response["message"]["content"]
+
+
+# Try it once
+result = describe_task("Torque check on Frame #4200 bolts")
+print(result)
+
+# Now a few more
+tasks = [
+    "Inspect weld joints on Assembly A",
+    "Replace hydraulic seals on 200-ton press",
+    "Calibrate digital caliper per SOP-CAL-003",
+]
+
+for task in tasks:
+    result = describe_task(task)
+    print(f"\n--- {task} ---")
+    print(result)
+
+print("\n--- Check your Langfuse dashboard. You should see 4 traces. ---")
+```
+
+---
+
+## Exercise 2: Tracing a RAG Pipeline with Nested Spans
+
+One function is nice. But your RAG pipeline has multiple steps: retrieve documents, build a prompt, call the LLM. You want to see each step separately.
+
+Here is the trick: when you nest `@observe()` functions inside each other, Langfuse automatically creates parent-child spans. Let's build this up piece by piece.
+
+First, set up a small knowledge base:
+
+```python
+# 12-observability-with-langfuse/ex2_rag_tracing.py
+"""Trace a full RAG pipeline -- retrieval, generation, evaluation."""
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from langfuse.decorators import observe
 import chromadb
 import ollama
 
-# Initialize Langfuse client
-langfuse = Langfuse(
-    public_key=os.getenv("LANGFUSE_PUBLIC_KEY", "pk-test"),
-    secret_key=os.getenv("LANGFUSE_SECRET_KEY", "sk-test"),
-    host=os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
-)
-
-# Set up a simple knowledge base
+# Quick knowledge base
 chroma_client = chromadb.Client()
 collection = chroma_client.create_collection(name="traced_kb")
 collection.add(
@@ -113,220 +229,245 @@ collection.add(
         "WPS-201: GMAW welding, 75/25 Ar/CO2, interpass temp 400F max",
     ],
 )
+```
 
+Now let's write three separate traced functions -- one for each pipeline step:
 
-def traced_rag_query(question: str) -> dict:
-    """RAG pipeline with full Langfuse tracing."""
+```python
+@observe()
+def retrieve_docs(question: str, n_results: int = 2) -> list:
+    """Retrieve relevant documents from ChromaDB."""
+    results = collection.query(query_texts=[question], n_results=n_results)
+    return results["documents"][0]
+```
 
-    # Create a trace for this entire request
-    trace = langfuse.trace(
-        name="rag-task-query",
-        input={"question": question},
-        metadata={"pipeline_version": "v1", "model": "llama3.1:8b"},
-    )
+Notice how this is just a normal function with `@observe()` on top. Langfuse will capture the input (`question`), the output (the list of docs), and the timing.
 
-    # SPAN 1: Retrieval
-    retrieval_span = trace.span(
-        name="retrieval",
-        input={"query": question, "n_results": 2},
-    )
+Next, the generation step:
 
-    results = collection.query(query_texts=[question], n_results=2)
-    retrieved_docs = results["documents"][0]
-    retrieved_ids = results["ids"][0]
-
-    retrieval_span.end(
-        output={"doc_ids": retrieved_ids, "doc_count": len(retrieved_docs)},
-    )
-
-    # SPAN 2: Generation
-    generation = trace.generation(
-        name="llm-generation",
-        model="llama3.1:8b",
-        input={
-            "system": "Answer using only the provided context.",
-            "context": retrieved_docs,
-            "question": question,
-        },
-        model_parameters={"temperature": 0.0},
-    )
-
-    context_str = "\n".join(retrieved_docs)
+```python
+@observe()
+def generate_answer(question: str, context_docs: list) -> str:
+    """Generate an answer using retrieved context."""
+    context_str = "\n".join(context_docs)
     response = ollama.chat(
         model="llama3.1:8b",
         messages=[
-            {"role": "system", "content": "Answer using ONLY the provided context. Cite sources."},
+            {"role": "system", "content": "Answer using ONLY the provided context. Cite document IDs."},
             {"role": "user", "content": f"Context:\n{context_str}\n\nQuestion: {question}"},
         ],
         options={"temperature": 0.0},
     )
-
-    answer = response["message"]["content"]
-    generation.end(output={"answer": answer})
-
-    # SPAN 3: Evaluation (quick heuristic)
-    eval_span = trace.span(name="evaluation")
-    quality_score = min(len(answer.split()) / 50, 1.0)  # Simple proxy
-    has_citation = any(ref_id in answer for ref_id in retrieved_ids)
-
-    # Log the evaluation score
-    trace.score(name="quality", value=quality_score)
-    trace.score(name="has_citation", value=1.0 if has_citation else 0.0)
-
-    eval_span.end(
-        output={"quality_score": quality_score, "has_citation": has_citation},
-    )
-
-    # Complete the trace
-    trace.update(output={"answer": answer, "sources": retrieved_ids})
-
-    return {"answer": answer, "sources": retrieved_ids, "quality": quality_score}
-
-
-# Run some traced queries
-test_questions = [
-    "What is the torque spec for M10 bolts?",
-    "What form do I use for visual inspection?",
-    "What's the maximum interpass temperature for welding?",
-]
-
-print("=== Running Traced Queries ===\n")
-for q in test_questions:
-    result = traced_rag_query(q)
-    print(f"Q: {q}")
-    print(f"A: {result['answer'][:100]}...")
-    print(f"Sources: {result['sources']}, Quality: {result['quality']:.2f}\n")
-
-# Flush to ensure all traces are sent
-langfuse.flush()
-
-print("=== Check Your Langfuse Dashboard ===")
-print("Open http://localhost:3000 (self-hosted) or https://cloud.langfuse.com")
-print("You'll see:")
-print("  - Each query as a trace with timing")
-print("  - Retrieval, generation, and evaluation as spans")
-print("  - Quality scores attached to each trace")
-print("  - Full prompt and response text for debugging")
+    return response["message"]["content"]
 ```
 
----
-
-## Exercise 2: Prompt Management
+And a quick evaluation step:
 
 ```python
-# 12-observability-with-langfuse/ex2_prompt_management.py
-"""Use Langfuse to version-control and manage prompts."""
-
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
-from langfuse import Langfuse
-import ollama
-
-langfuse = Langfuse(
-    public_key=os.getenv("LANGFUSE_PUBLIC_KEY", "pk-test"),
-    secret_key=os.getenv("LANGFUSE_SECRET_KEY", "sk-test"),
-    host=os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
-)
-
-# Create/update a prompt in Langfuse
-# This lets you change prompts WITHOUT changing code
-try:
-    langfuse.create_prompt(
-        name="task-description-generator",
-        prompt="""You are a manufacturing technical writer for an ISO 9001 facility.
-Write task descriptions following these rules:
-- 3-5 numbered steps starting with action verbs
-- Include specific tool, spec, and form references
-- Include PPE/safety requirements
-- Active voice, 8th-grade reading level
-- 50-100 words
-
-Task: {{task_name}}
-Context: {{context}}""",
-        labels=["production"],
-    )
-    print("✓ Prompt created/updated in Langfuse")
-except Exception as e:
-    print(f"Note: {e}")
-    print("(This is fine — Langfuse may not be running. Using local prompt.)")
-
-# In production, you'd fetch the prompt from Langfuse:
-def get_prompt_from_langfuse(name: str) -> str:
-    """Fetch the latest production prompt from Langfuse."""
-    try:
-        prompt = langfuse.get_prompt(name, label="production")
-        return prompt.compile(task_name="{{task_name}}", context="{{context}}")
-    except Exception:
-        # Fallback to local prompt
-        return """You are a manufacturing technical writer.
-Write 3-5 numbered steps starting with action verbs.
-Include safety and reference requirements.
-
-Task: {{task_name}}
-Context: {{context}}"""
-
-print("\n=== Prompt Management Benefits ===")
-print("1. Version history: See every prompt change over time")
-print("2. A/B testing: Run different prompt versions in production")
-print("3. No code deploys: Change prompts without touching code")
-print("4. Audit trail: Who changed what prompt, when, and why")
-print("5. Rollback: Instantly revert to a previous prompt version")
-```
-
----
-
-## Exercise 3: Monitoring Quality Over Time
-
-```python
-# 12-observability-with-langfuse/ex3_quality_monitoring.py
-"""Track quality metrics over time to catch degradation."""
-
-import os
-from dotenv import load_dotenv
-load_dotenv()
-
-from langfuse import Langfuse
-import ollama
-import json
-import re
-from datetime import datetime
-
-langfuse = Langfuse(
-    public_key=os.getenv("LANGFUSE_PUBLIC_KEY", "pk-test"),
-    secret_key=os.getenv("LANGFUSE_SECRET_KEY", "sk-test"),
-    host=os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
-)
-
-
-def evaluate_and_trace(task_name: str, output: str, trace_id: str = None) -> dict:
-    """Evaluate a task description and log metrics to Langfuse."""
-
-    # Heuristic evaluation
+@observe()
+def evaluate_answer(answer: str, context_docs: list) -> dict:
+    """Quick heuristic evaluation of the answer."""
     scores = {
-        "format_compliance": 1.0 if re.findall(r'^\s*\d+[\.\)]', output, re.MULTILINE) else 0.0,
-        "length_appropriate": 1.0 if 30 <= len(output.split()) <= 200 else 0.0,
-        "has_safety": 1.0 if any(w in output.lower() for w in ["safety", "ppe", "lockout", "gloves"]) else 0.0,
-        "has_references": 1.0 if re.search(r'[A-Z]{2,}-\d{2,}', output) else 0.0,
+        "length_ok": 10 <= len(answer.split()) <= 200,
+        "uses_context": any(doc[:20] in answer for doc in context_docs),
+        "not_empty": len(answer.strip()) > 0,
     }
     scores["overall"] = sum(scores.values()) / len(scores)
-
-    # Log to Langfuse
-    trace = langfuse.trace(
-        name="quality-check",
-        input={"task_name": task_name},
-        output={"description": output},
-        metadata={"timestamp": datetime.now().isoformat()},
-    )
-
-    for metric_name, value in scores.items():
-        trace.score(name=metric_name, value=value)
-
     return scores
+```
+
+Now the key part. We write one parent function that calls all three:
+
+```python
+@observe()
+def rag_query(question: str) -> dict:
+    """Full RAG pipeline -- retrieve, generate, evaluate."""
+    docs = retrieve_docs(question)
+    answer = generate_answer(question, docs)
+    scores = evaluate_answer(answer, docs)
+    return {"answer": answer, "scores": scores}
+```
+
+**This is where it gets good.** Because `rag_query` is decorated with `@observe()`, and it calls three other `@observe()` functions, Langfuse will show the parent trace with three child spans nested inside it. Just like a flame graph in traditional performance profiling.
+
+Run some queries:
+
+```python
+questions = [
+    "What is the torque spec for M10 bolts?",
+    "What form do I use for visual inspection?",
+    "What is the maximum interpass temperature for welding?",
+]
+
+for q in questions:
+    result = rag_query(q)
+    print(f"Q: {q}")
+    print(f"A: {result['answer'][:80]}...")
+    print(f"Scores: {result['scores']}")
+    print()
+
+print("--- Open Langfuse. Click on a trace. See the nested spans? ---")
+print("--- You can see exactly how long retrieval vs generation took. ---")
+```
+
+Go check your dashboard now. Click on one of the `rag_query` traces. You will see:
+
+```
+rag_query (total: 2.1s)
+  +-- retrieve_docs (0.05s)
+  +-- generate_answer (1.9s)
+  +-- evaluate_answer (0.01s)
+```
+
+Notice how generation dominates the time? That is the kind of insight you get for free. On a factory floor, this is like seeing which station in your production line is the bottleneck.
+
+---
+
+## Exercise 3: Prompt Management
+
+Here is a real-world scenario. Your team has been tweaking the system prompt for weeks. Someone changes it, quality drops, nobody knows what the prompt was last Tuesday. Sound familiar? It is the manufacturing equivalent of someone adjusting machine settings without logging it.
+
+Langfuse lets you store and version prompts in the dashboard, then fetch them in code. The prompt lives in Langfuse, not in your Python file.
+
+```python
+# 12-observability-with-langfuse/ex3_prompt_management.py
+"""Manage prompts through Langfuse -- version control without code deploys."""
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from langfuse import Langfuse
+from langfuse.decorators import observe
+import ollama
+
+langfuse = Langfuse()
+```
+
+First, let's create a prompt in Langfuse:
+
+```python
+langfuse.create_prompt(
+    name="task-description-generator",
+    prompt="""You are a manufacturing technical writer for an ISO 9001 facility.
+
+Write a task description for: {{task_name}}
+Context: {{context}}
+
+Rules:
+- 3-5 numbered steps starting with action verbs
+- Include PPE/safety requirements
+- Reference specific forms and specs
+- Active voice, 50-100 words""",
+    labels=["production"],
+)
+print("Prompt created in Langfuse.")
+```
+
+Run that once. Now go to your Langfuse dashboard and look under Prompts. You will see "task-description-generator" with version 1 and the label "production."
+
+Now let's use it in code:
+
+```python
+@observe()
+def generate_from_managed_prompt(task_name: str, context: str) -> str:
+    """Fetch the prompt from Langfuse and use it."""
+    # Fetch the production version of the prompt
+    prompt = langfuse.get_prompt("task-description-generator", label="production")
+
+    # Compile it -- this fills in the {{variables}}
+    compiled = prompt.compile(task_name=task_name, context=context)
+
+    response = ollama.chat(
+        model="llama3.1:8b",
+        messages=[{"role": "user", "content": compiled}],
+        options={"temperature": 0.0},
+    )
+    return response["message"]["content"]
 
 
-# Simulate monitoring over multiple generations
+result = generate_from_managed_prompt(
+    task_name="Inspect weld joints on Frame Assembly A",
+    context="AWS D1.1, Form QC-107, fillet gauge required",
+)
+print(result)
+```
+
+**Why does this matter?** Because now you can:
+
+1. Change the prompt in the Langfuse UI -- no code deploy needed
+2. See every version of the prompt and when it changed
+3. A/B test prompt versions
+4. Roll back instantly if a new prompt tanks quality
+
+It is like having a controlled recipe book for your LLM. Nobody can secretly tweak the recipe without it being logged.
+
+Try changing the prompt in the Langfuse UI (add "Include lockout/tagout where applicable" to the rules). Then re-run the code. The new prompt gets fetched automatically.
+
+---
+
+## Exercise 4: Adding Quality Scores to Traces
+
+You are generating task descriptions and tracing them. But are they any good? Let's attach quality scores directly to traces so you can track quality over time.
+
+```python
+# 12-observability-with-langfuse/ex4_quality_scores.py
+"""Attach quality scores to traces for monitoring over time."""
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from langfuse.decorators import observe, langfuse_context
+import ollama
+import re
+```
+
+First, a scoring function:
+
+```python
+def score_task_description(text: str) -> dict:
+    """Score a task description on key quality dimensions."""
+    scores = {}
+    scores["has_numbered_steps"] = len(re.findall(r'^\s*\d+[\.\)]', text, re.MULTILINE)) >= 3
+    scores["has_safety"] = any(w in text.lower() for w in ["ppe", "safety", "lockout", "gloves", "helmet"])
+    scores["has_references"] = bool(re.search(r'[A-Z]{2,}-\d{2,}', text))
+    scores["good_length"] = 30 <= len(text.split()) <= 150
+    scores["starts_with_verb"] = bool(re.search(r'^\s*\d+[\.\)]\s*[A-Z][a-z]+\b', text, re.MULTILINE))
+    scores["overall"] = sum(scores.values()) / len(scores)
+    return scores
+```
+
+Now, here is the key part. Inside an `@observe()` function, you can use `langfuse_context` to attach scores to the current trace:
+
+```python
+@observe()
+def generate_and_score(task_name: str) -> dict:
+    """Generate a task description and score it."""
+    response = ollama.chat(
+        model="llama3.1:8b",
+        messages=[
+            {"role": "system", "content": "Write a manufacturing task description with numbered steps, safety notes, and spec references."},
+            {"role": "user", "content": f"Task: {task_name}"},
+        ],
+        options={"temperature": 0.0},
+    )
+    answer = response["message"]["content"]
+
+    # Score it
+    scores = score_task_description(answer)
+
+    # Attach scores to the current trace in Langfuse
+    for name, value in scores.items():
+        langfuse_context.score_current_trace(
+            name=name,
+            value=float(value),
+        )
+
+    return {"answer": answer, "scores": scores}
+```
+
+Let's run it on several tasks:
+
+```python
 tasks = [
     "Inspect weld joints on Frame A",
     "Set up CNC for shaft machining",
@@ -335,58 +476,189 @@ tasks = [
     "Replace conveyor belt rollers",
 ]
 
-print("=== Quality Monitoring Dashboard (simulated) ===\n")
-all_scores = []
-
+print("=== Generating and Scoring ===\n")
 for task in tasks:
-    output = ollama.chat(
+    result = generate_and_score(task)
+    status = "PASS" if result["scores"]["overall"] >= 0.6 else "FAIL"
+    print(f"[{status}] {task}")
+    print(f"  Overall: {result['scores']['overall']:.0%}")
+    for k, v in result["scores"].items():
+        if k != "overall":
+            print(f"    {k}: {'yes' if v else 'no'}")
+    print()
+
+print("--- Go to Langfuse. Click on Scores in the sidebar. ---")
+print("--- You can filter traces by score value. ---")
+print("--- Find the ones that failed and see why. ---")
+```
+
+**Now imagine this running for a week.** Every time your system generates a task description, the score gets logged. In Langfuse you can:
+
+- See quality trending over time (is it getting better or worse?)
+- Filter to just the low-scoring outputs (what went wrong?)
+- Correlate quality drops with prompt changes (did someone break something?)
+
+This is your SPC chart for LLM output quality. Just like statistical process control catches a CNC machine drifting out of tolerance, Langfuse catches your LLM drifting out of quality specs.
+
+---
+
+## Exercise 5: Putting It All Together -- A Monitored RAG Function
+
+Let's combine everything: tracing, nested spans, prompt management, and quality scores in one clean pipeline.
+
+```python
+# 12-observability-with-langfuse/ex5_monitored_rag.py
+"""Complete monitored RAG pipeline using @observe decorator throughout."""
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from langfuse import Langfuse
+from langfuse.decorators import observe, langfuse_context
+import chromadb
+import ollama
+import re
+
+langfuse = Langfuse()
+
+# --- Knowledge Base Setup ---
+chroma_client = chromadb.Client()
+collection = chroma_client.create_collection(name="monitored_kb")
+collection.add(
+    ids=["MT-302", "QC-107", "WPS-201", "SOP-FL-001", "CAL-003"],
+    documents=[
+        "Torque Spec MT-302: M8=25-30Nm, M10=45-55Nm for Frame #4200",
+        "Form QC-107: Visual inspection checklist, requires inspector badge and date",
+        "WPS-201: GMAW welding, 75/25 Ar/CO2, interpass temp 400F max",
+        "SOP-FL-001: Daily forklift inspection, check tires/horn/lights/brakes before each shift",
+        "CAL-003: Caliper calibration using NIST-traceable gauge blocks at 0.5/1.0/2.0/4.0 inches",
+    ],
+)
+
+
+# --- Pipeline Steps (each traced separately) ---
+
+@observe()
+def retrieve(question: str) -> dict:
+    """Retrieve relevant documents."""
+    results = collection.query(query_texts=[question], n_results=2)
+    return {
+        "documents": results["documents"][0],
+        "ids": results["ids"][0],
+    }
+
+
+@observe()
+def generate(question: str, context_docs: list) -> str:
+    """Generate answer from context."""
+    # Try to fetch managed prompt, fall back to local
+    try:
+        prompt_obj = langfuse.get_prompt("task-description-generator", label="production")
+        system_msg = "You are a manufacturing technical writer. Answer using only the provided context."
+    except Exception:
+        system_msg = "You are a manufacturing technical writer. Answer using only the provided context."
+
+    context_str = "\n".join(context_docs)
+    response = ollama.chat(
         model="llama3.1:8b",
         messages=[
-            {"role": "system", "content": "Write a manufacturing task description with numbered steps, safety notes, and spec references."},
-            {"role": "user", "content": f"Task: {task}"},
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": f"Context:\n{context_str}\n\nQuestion: {question}"},
         ],
         options={"temperature": 0.0},
-    )["message"]["content"]
+    )
+    return response["message"]["content"]
 
-    scores = evaluate_and_trace(task, output)
-    all_scores.append(scores)
 
-    status = "✓" if scores["overall"] >= 0.75 else "⚠️" if scores["overall"] >= 0.5 else "✗"
-    print(f"{status} {task}: {scores['overall']:.0%}")
-    for k, v in scores.items():
-        if k != "overall":
-            print(f"    {k}: {'✓' if v else '✗'}")
+@observe()
+def evaluate(answer: str, source_ids: list) -> dict:
+    """Evaluate the answer quality."""
+    scores = {
+        "has_steps": len(re.findall(r'^\s*\d+[\.\)]', answer, re.MULTILINE)) >= 2,
+        "has_safety": any(w in answer.lower() for w in ["ppe", "safety", "lockout", "gloves"]),
+        "has_refs": bool(re.search(r'[A-Z]{2,}-\d{2,}', answer)),
+        "cites_source": any(sid in answer for sid in source_ids),
+        "good_length": 20 <= len(answer.split()) <= 200,
+    }
+    scores["overall"] = sum(scores.values()) / len(scores)
+    return scores
 
-# Aggregate stats
-avg_overall = sum(s["overall"] for s in all_scores) / len(all_scores)
-avg_safety = sum(s["has_safety"] for s in all_scores) / len(all_scores)
-avg_format = sum(s["format_compliance"] for s in all_scores) / len(all_scores)
 
-print(f"\n=== Aggregate Metrics ===")
-print(f"Overall quality:    {avg_overall:.0%}")
-print(f"Format compliance:  {avg_format:.0%}")
-print(f"Safety inclusion:   {avg_safety:.0%}")
+# --- Main Pipeline ---
 
-langfuse.flush()
+@observe()
+def monitored_rag_query(question: str) -> dict:
+    """Full monitored RAG pipeline."""
+    # Step 1: Retrieve
+    retrieved = retrieve(question)
 
-print(f"\n=== In Langfuse Dashboard You'd See ===")
-print("- Quality scores trending over time (daily/weekly)")
-print("- Alerts when scores drop below threshold")
-print("- Drill-down into specific low-scoring traces")
-print("- Comparison between prompt versions")
-print("- Cost per query and total spend tracking")
+    # Step 2: Generate
+    answer = generate(question, retrieved["documents"])
+
+    # Step 3: Evaluate
+    scores = evaluate(answer, retrieved["ids"])
+
+    # Attach scores to the trace
+    for name, value in scores.items():
+        langfuse_context.score_current_trace(
+            name=name,
+            value=float(value),
+        )
+
+    # Tag the trace with metadata
+    langfuse_context.update_current_trace(
+        metadata={
+            "source_ids": retrieved["ids"],
+            "model": "llama3.1:8b",
+            "pipeline_version": "v1",
+        }
+    )
+
+    return {
+        "answer": answer,
+        "sources": retrieved["ids"],
+        "scores": scores,
+    }
+
+
+# --- Run It ---
+
+questions = [
+    "What is the torque spec for M10 bolts on Frame #4200?",
+    "What do I need for a visual inspection?",
+    "What gas mix does WPS-201 require for GMAW welding?",
+    "How do I do a daily forklift inspection?",
+    "What gauge blocks do I need for caliper calibration?",
+]
+
+print("=== Monitored RAG Pipeline ===\n")
+for q in questions:
+    result = monitored_rag_query(q)
+    status = "PASS" if result["scores"]["overall"] >= 0.6 else "FAIL"
+    print(f"[{status}] Q: {q}")
+    print(f"  A: {result['answer'][:80]}...")
+    print(f"  Sources: {result['sources']}")
+    print(f"  Overall: {result['scores']['overall']:.0%}")
+    print()
+
+print("=== What to Check in Langfuse ===")
+print("1. Click on any trace -- see the retrieve/generate/evaluate spans")
+print("2. Click Scores in the sidebar -- see quality over all queries")
+print("3. Filter by score < 0.6 to find the weak outputs")
+print("4. Look at the timing -- is retrieval or generation the bottleneck?")
+print("5. Check the metadata tab -- see model version and source IDs")
 ```
 
 ---
 
 ## Takeaways
 
-1. **Langfuse is your open-source Galileo** — free, self-hosted, MIT-licensed
-2. **Trace everything** — retrieval, generation, evaluation, all in one trace
-3. **Prompt management** separates prompt changes from code deploys
-4. **Quality monitoring** catches degradation before users notice
-5. **Scores on traces** create a queryable quality history
+1. **Langfuse is your open-source Galileo** -- free, self-hosted, full tracing and scoring
+2. **The `@observe()` decorator is all you need** -- one line per function, Langfuse handles the rest
+3. **Nested `@observe()` functions create span trees** -- see exactly where time is spent
+4. **Prompt management** means prompt changes are tracked and reversible, just like version-controlled machine settings
+5. **Quality scores on traces** let you build an SPC chart for your LLM -- catch drift before it becomes a problem
 
-## Setting the Stage for Module 13
+## What's Next
 
-You can evaluate and observe. But evaluation is only as good as your **test data**. Module 13 teaches you to build high-quality evaluation datasets, create golden test sets, and set up regression benchmarks that protect against quality degradation over time.
+You can observe and score your pipeline now. But your evaluation is only as good as your test data. Module 13 teaches you to build golden datasets and regression benchmarks -- the test infrastructure that makes all this monitoring meaningful.

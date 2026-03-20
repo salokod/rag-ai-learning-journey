@@ -1,182 +1,276 @@
 # Module 00: Environment Setup
 
-## Goal
-Get your entire development environment ready so every future module "just works." By the end of this module, you'll have Python, Ollama, and all dependencies installed and verified.
+**Time:** ~30 minutes
+**What you'll have when done:** Python, Ollama, and all dependencies installed and verified. Ready to talk to an LLM running on your own machine.
 
 ---
 
-## Step 1: Python Environment
+## First things first: open your terminal
 
-We use Python 3.11+ with a virtual environment to keep things clean.
+Everything in this course happens from the command line. Open Terminal (or iTerm, or whatever you prefer) and navigate to this repo:
 
 ```bash
-# From the repo root
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Verify
-python --version  # Should be 3.11+
+cd ~/repos/rag-ai-learning-journey
 ```
 
-**Why a virtual environment?** It isolates this project's dependencies from your system Python. When you're done for the day, just `deactivate`. When you come back, `source .venv/bin/activate`.
+Let's make sure you're in the right place. Run this:
+
+```bash
+ls
+```
+
+You should see folders like `00-environment-setup/`, `01-llm-fundamentals/`, `requirements.txt`, etc. If you do, great -- you're in the right spot.
+
+---
+
+## Step 1: Create a Python virtual environment
+
+A virtual environment is like a clean workbench. It keeps this project's tools separate from everything else on your Mac. Think of it like having a dedicated toolbox for one job instead of dumping everything into one drawer.
+
+Run this:
+
+```bash
+python3 -m venv .venv
+```
+
+Nothing happened? Good. That means it worked. Now activate it:
+
+```bash
+source .venv/bin/activate
+```
+
+Notice how your terminal prompt changed? You should see `(.venv)` at the beginning of the line. That tells you the virtual environment is active.
+
+Now let's check your Python version:
+
+```bash
+python --version
+```
+
+You need 3.11 or higher. If you see something like `Python 3.12.x` or `Python 3.13.x`, you're good.
+
+**Quick reference for later:**
+- Leaving for the day? Type `deactivate` to exit the venv.
+- Coming back? Run `source .venv/bin/activate` again from the repo root.
+- Forgot whether it's active? Look for `(.venv)` in your prompt.
 
 ---
 
 ## Step 2: Install Ollama
 
-Ollama is your local LLM runtime. It runs models directly on your M4 Pro's GPU (via Metal).
+Ollama is the engine that runs LLMs locally on your Mac. Your M4 Pro has a powerful GPU built in, and Ollama knows how to use it. No cloud, no API keys, no per-token charges.
+
+Run this:
 
 ```bash
-# Install Ollama (if not already installed)
 brew install ollama
-
-# Start the Ollama server (runs in background)
-ollama serve &
-
-# Pull your first model — Llama 3.1 8B is a great starting point
-ollama pull llama3.1:8b
-
-# Also grab a small model for quick experiments
-ollama pull phi3:mini
-
-# Verify it works
-ollama run llama3.1:8b "Say hello in one sentence"
 ```
 
-**What just happened?** Ollama downloaded a quantized (compressed) version of Meta's Llama 3.1 model. The 8B parameter version uses ~5GB of RAM. Your 48GB machine can comfortably run models up to ~32B parameters.
+If you see "already installed," that's fine -- move on.
 
-### Recommended Models to Pull (you can do this now or as needed)
+Now start the Ollama server:
 
 ```bash
-# For learning (fast, small)
-ollama pull phi3:mini          # 3.8B params, ~2GB RAM
-ollama pull llama3.1:8b        # 8B params, ~5GB RAM
-
-# For quality work (your daily driver)
-ollama pull llama3.1:latest    # 8B params, good balance
-ollama pull mistral:latest     # 7B params, great for structured tasks
-
-# For when you need the best local quality
-ollama pull qwen2.5:32b        # 32B params, ~20GB RAM, excellent quality
+ollama serve &
 ```
+
+That `&` at the end runs it in the background so you can keep using your terminal. You might see some log output -- that's normal.
+
+Let's verify it's running:
+
+```bash
+ollama list
+```
+
+If this is your first time, the list will be empty. That's expected -- we haven't downloaded any models yet.
+
+If you get "Error: could not connect to ollama," wait a few seconds and try again. The server sometimes needs a moment to start up.
 
 ---
 
-## Step 3: Install Python Dependencies
+## Step 3: Pull your first model
+
+This is the fun part. You're about to download an actual Large Language Model to your machine.
+
+Run this:
 
 ```bash
-# From the repo root, with venv activated
+ollama pull llama3.1:8b
+```
+
+This downloads Meta's Llama 3.1 model with 8 billion parameters. It's about 4.7GB, so it might take a minute depending on your connection.
+
+While it downloads, here's what's happening: Ollama is pulling a "quantized" (compressed) version of the model. The full model would be much larger, but quantization shrinks it down to fit comfortably in memory while keeping most of the quality. Your 48GB machine handles this easily.
+
+When it finishes, let's make sure it worked:
+
+```bash
+ollama list
+```
+
+You should see `llama3.1:8b` in the list now. Notice the size column -- around 4.7GB.
+
+Let's give it a spin. Run this:
+
+```bash
+ollama run llama3.1:8b "Say hello in one sentence."
+```
+
+You just ran an LLM on your own hardware. No internet needed, no API key, no usage fees. The model processed your request entirely on your M4 Pro's GPU.
+
+**Try another one:**
+
+```bash
+ollama run llama3.1:8b "What are the three main types of welding?"
+```
+
+See how fast that was? That's the M4 Pro's Metal GPU at work.
+
+---
+
+## Step 4: A note on other models
+
+For this learning journey, `llama3.1:8b` is your workhorse. It's fast, capable, and well-tested.
+
+As you get more comfortable, you might want to try newer models. Here are a couple worth knowing about:
+
+```bash
+ollama pull qwen3:8b
+```
+
+Qwen 3 is from Alibaba's team and is excellent at structured tasks and following instructions. Some people find it slightly better than Llama for professional writing.
+
+```bash
+ollama pull llama4:scout
+```
+
+Llama 4 Scout is Meta's newest model architecture. It uses a "mixture of experts" design -- think of it like having several specialists who each handle different kinds of questions, rather than one generalist.
+
+You do NOT need to pull these right now. `llama3.1:8b` is all you need for the exercises. But it's good to know your options.
+
+**How to think about model sizes on your machine:**
+- 8B parameter models (~5GB) -- fast, good for learning and iteration
+- 14B-32B models (~9-20GB) -- better quality, still comfortable on 48GB RAM
+- 70B+ models -- won't fit well, skip these for now
+
+---
+
+## Step 5: Install Python dependencies
+
+Make sure your virtual environment is active (you should see `(.venv)` in your prompt), then run:
+
+```bash
 pip install -r requirements.txt
 ```
 
-This installs everything for all modules. Some packages are large (especially `transformers` and `sentence-transformers`), so this may take a few minutes.
+This installs everything you'll need across all 20 modules. It includes packages for:
+- Talking to Ollama from Python (`ollama`)
+- Vector databases (`chromadb`)
+- RAG frameworks (`langchain`)
+- Evaluation tools (`ragas`, `deepeval`)
+- And more
+
+This will take a few minutes. Some packages are large (especially `transformers` and `sentence-transformers`).
+
+When it finishes, let's do a quick sanity check:
+
+```bash
+python -c "import ollama; print('ollama package works')"
+```
+
+You should see `ollama package works`. If you see an error, make sure your venv is active and try `pip install ollama` directly.
 
 ---
 
-## Step 4: Environment Variables
+## Step 6: Set up your environment file
 
 ```bash
-# Copy the example env file
 cp .env.example .env
 ```
 
-**For now, you don't need any API keys.** Modules 00-13 work entirely with local Ollama models. If you later want to compare against cloud models (OpenAI, Anthropic), you can add those keys then.
+This creates a local `.env` file for API keys. Here's the thing though -- you don't need any API keys right now. Modules 00 through 13 work entirely with local Ollama models. If you later want to compare against cloud models like OpenAI or Anthropic, you can add keys then.
 
 ---
 
-## Step 5: Verify Everything Works
+## Step 7: Verify everything works
 
-Create and run this verification script:
-
-```python
-# 00-environment-setup/verify_setup.py
-"""Verify that the learning journey environment is ready."""
-
-import sys
-print(f"✓ Python {sys.version}")
-
-# Check key packages
-try:
-    import ollama
-    print("✓ ollama package installed")
-except ImportError:
-    print("✗ ollama package missing — run: pip install ollama")
-
-try:
-    import chromadb
-    print("✓ chromadb installed")
-except ImportError:
-    print("✗ chromadb missing")
-
-try:
-    import langchain
-    print("✓ langchain installed")
-except ImportError:
-    print("✗ langchain missing")
-
-try:
-    from ragas import evaluate
-    print("✓ ragas installed")
-except ImportError:
-    print("✗ ragas missing")
-
-try:
-    from deepeval import evaluate as deep_evaluate
-    print("✓ deepeval installed")
-except ImportError:
-    print("✗ deepeval missing")
-
-try:
-    import langfuse
-    print("✓ langfuse installed")
-except ImportError:
-    print("✗ langfuse missing")
-
-# Check Ollama connectivity
-try:
-    client = ollama.Client()
-    models = client.list()
-    model_names = [m.model for m in models.models]
-    print(f"✓ Ollama running with models: {model_names}")
-except Exception as e:
-    print(f"✗ Ollama not reachable: {e}")
-    print("  Run: ollama serve")
-
-print("\n🎯 If all checks pass, you're ready for Module 01!")
-```
+Now let's run the verification script that checks all the pieces at once:
 
 ```bash
 python 00-environment-setup/verify_setup.py
 ```
 
+Go through the output line by line. Here's what to look for:
+
+- Lines starting with a checkmark mean that component is ready.
+- Lines starting with an X mean something is missing.
+
+**If you see "Ollama not reachable":**
+
+That means the Ollama server isn't running. Open a new terminal tab and run:
+
+```bash
+ollama serve
+```
+
+Then come back and run the verify script again.
+
+**If you see a missing package:**
+
+Run the `pip install` command shown in the error message. For example:
+
+```bash
+pip install chromadb
+```
+
+Then run the verify script again.
+
+**If you see "No Llama model found":**
+
+```bash
+ollama pull llama3.1:8b
+```
+
+**If everything passes:** you're done with setup. Every tool you need for the entire learning journey is installed and working.
+
 ---
 
-## Step 6: Understand the Project Structure
+## Quick tour of the project structure
 
+Run this to see the layout:
+
+```bash
+ls -d */
 ```
-rag-ai-learning-journey/
-├── .venv/                    # Your Python virtual environment
-├── .env                      # Your API keys (never committed)
-├── requirements.txt          # All Python dependencies
-├── CLAUDE.md                 # Project context for AI assistants
-├── README.md                 # The master learning path
-│
-├── 00-environment-setup/     # ← You are here
-├── 01-llm-fundamentals/      # How LLMs actually work
-├── 02-running-local-llms/    # Ollama deep dive
-│   ...
-├── 19-capstone-.../          # Final project
-```
+
+You'll see 20 module folders numbered `00-` through `19-`. Each one builds on the previous, so go through them in order.
+
+The key files at the root:
+- `requirements.txt` -- all Python dependencies (you already installed these)
+- `.env` -- your local API keys (not committed to git)
+- `CLAUDE.md` -- project context
+- `README.md` -- the master learning path
 
 ---
 
 ## Takeaways
 
-- You have a **clean Python environment** isolated from your system
-- **Ollama** is running locally and can serve LLM models via API
-- All **Python packages** are installed for every module
-- You don't need cloud API keys — everything works locally on your M4 Pro
+Here's what you just accomplished:
 
-## Setting the Stage for Module 01
+- **Python virtual environment** -- your isolated workspace for this project
+- **Ollama running locally** -- an LLM engine using your M4 Pro's GPU, no cloud needed
+- **llama3.1:8b downloaded** -- a real 8-billion-parameter model on your machine
+- **All Python packages installed** -- ready for every module in the journey
+- **Verification script passing** -- everything confirmed working
 
-You've got the tools. Now you need to understand **what an LLM actually is** — not the hype, but the mechanics. How does it generate text? What are tokens? Why does "temperature" matter? Module 01 gives you the mental model that makes everything else click.
+You ran an LLM on your own hardware. That's not a small thing. Most people only interact with LLMs through a chat window on a website. You now have direct access to the engine itself.
+
+---
+
+## What's next: Module 01
+
+You've got the tools installed. Now you need to understand what an LLM actually *is*. Not the hype, not the marketing -- the actual mechanics. How does it generate text? What are tokens? Why does "temperature" matter?
+
+Module 01 gives you the mental model that makes everything else in this journey click. You'll start by running commands directly in the terminal, then gradually move into Python.
+
+Head over to `01-llm-fundamentals/` when you're ready.

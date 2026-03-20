@@ -1,80 +1,133 @@
 # Module 03: Prompt Engineering
 
 ## Goal
-Master systematic prompt engineering techniques. By the end, you'll have a prompt suite that can generate manufacturing task descriptions matching a specific style and format.
+Learn to control what an LLM produces -- systematically, not by luck. By the end of this module, you'll have a reusable prompt template that generates manufacturing task descriptions in your style, your format, every time. This is the most important module for your project.
 
 ---
 
-## Concepts
+## Part 1: Start Simple -- Zero-Shot Prompting
 
-### Prompt Engineering Is Not Magic
+Zero-shot means you just ask for what you want. No examples, no special setup. Let's see what happens.
 
-It's not about "one weird trick." It's a systematic process:
+### Step 1: Just ask
 
-1. **Define what "good" looks like** — collect examples of the output you want
-2. **Structure your prompt** — use proven techniques (zero-shot, few-shot, chain-of-thought)
-3. **Iterate and measure** — change one thing at a time, evaluate the result
-4. **Lock it down** — once it works, version control it like code
-
-### The Anatomy of a Prompt
-
-```
-┌─────────────────────────────────────────┐
-│ SYSTEM PROMPT                           │
-│ - Role definition                       │
-│ - Constraints and rules                 │
-│ - Output format specification           │
-├─────────────────────────────────────────┤
-│ FEW-SHOT EXAMPLES (optional)            │
-│ - Input → Expected output pairs         │
-│ - Shows the model what "good" looks like│
-├─────────────────────────────────────────┤
-│ USER INPUT                              │
-│ - The specific task/question            │
-│ - Any context or reference material     │
-└─────────────────────────────────────────┘
-```
-
-### Key Techniques
-
-| Technique | When to Use | Example |
-|-----------|-------------|---------|
-| **Zero-shot** | Simple tasks, model already knows how | "Summarize this paragraph" |
-| **Few-shot** | Need specific format/style | Provide 2-3 examples first |
-| **Chain-of-thought** | Complex reasoning needed | "Think through this step by step" |
-| **Role prompting** | Domain-specific language | "You are a manufacturing engineer" |
-| **Constrained output** | Exact format needed | "Respond in exactly this JSON format" |
-
----
-
-## Exercise 1: Zero-Shot vs Few-Shot
+Create a file and run it:
 
 ```python
-# 03-prompt-engineering/ex1_zero_vs_few_shot.py
-"""Compare zero-shot and few-shot prompting for task descriptions."""
-
+# 03-prompt-engineering/step01_zero_shot.py
 import ollama
 
-# === ZERO-SHOT: Just tell it what you want ===
-zero_shot_prompt = """Write a manufacturing task description for:
-"Inspect incoming raw steel plates for surface defects"
-
-The description should be professional, specific, and actionable."""
-
-print("=== ZERO-SHOT ===")
 response = ollama.chat(
     model="llama3.1:8b",
-    messages=[{"role": "user", "content": zero_shot_prompt}],
+    messages=[
+        {"role": "user", "content": "Write a task description for: Inspect incoming raw steel plates for surface defects"}
+    ],
     options={"temperature": 0.1},
 )
-print(response["message"]["content"])
 
-# === FEW-SHOT: Show it examples first ===
+print(response["message"]["content"])
+```
+
+```bash
+python 03-prompt-engineering/step01_zero_shot.py
+```
+
+Read the output. It's... OK, right? It probably mentions visual inspection, maybe some defect types. But ask yourself:
+
+- Does it match the format your facility actually uses?
+- Is it the right length?
+- Does it mention specific tools, forms, or spec numbers?
+- Would you hand this to a new operator on the floor?
+
+Probably not. The model is guessing at what a "task description" should look like. It has no idea what *your* task descriptions look like.
+
+Let's fix that, one piece at a time.
+
+---
+
+## Part 2: System Prompts -- Giving the Model a Job
+
+### Step 2: Add a role
+
+Instead of talking to a generic AI, let's tell it who it is:
+
+```python
+# 03-prompt-engineering/step02_system_prompt.py
+import ollama
+
+response = ollama.chat(
+    model="llama3.1:8b",
+    messages=[
+        {"role": "system", "content": "You are a manufacturing technical writer."},
+        {"role": "user", "content": "Write a task description for: Inspect incoming raw steel plates for surface defects"},
+    ],
+    options={"temperature": 0.1},
+)
+
+print(response["message"]["content"])
+```
+
+Run it. Compare to Step 1.
+
+See the difference? Even that one line -- "You are a manufacturing technical writer" -- shifts the tone. The language gets more professional. It might start including things like PPE or documentation steps that were missing before.
+
+But it's still pretty vague about the *format*. Let's get more specific.
+
+### Step 3: Add constraints
+
+```python
+# 03-prompt-engineering/step03_detailed_system.py
+import ollama
+
+system_prompt = """You are a senior technical writer at an ISO 9001-certified manufacturing facility.
+You write task descriptions that:
+- Start with an action verb
+- Include specific tools and equipment in parentheses
+- Reference applicable specifications or form numbers
+- Include safety requirements (PPE, lockout/tagout) when applicable
+- Are written at an 8th-grade reading level
+- Are 50-100 words long
+- End with a quality check or sign-off step"""
+
+response = ollama.chat(
+    model="llama3.1:8b",
+    messages=[
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "Write a task description for: Inspect incoming raw steel plates for surface defects"},
+    ],
+    options={"temperature": 0.1},
+)
+
+print(response["message"]["content"])
+```
+
+Run it. NOW look at the difference.
+
+This is a big jump. The model is following your constraints -- numbered steps, action verbs, tool references. It's starting to look like a real work instruction.
+
+Notice what happened: we didn't change the question at all. We only changed the *framing*. The system prompt is like a job description for the AI -- the more specific you are about the job, the better it performs.
+
+### Try this: Change one constraint
+
+Go back to the system prompt and change "50-100 words" to "exactly 3 steps." Run it again. See how it adapts? Each constraint you add or change steers the output. This is the core of prompt engineering -- not magic, just clear instructions.
+
+---
+
+## Part 3: Few-Shot Prompting -- Show, Don't Tell
+
+This is your most powerful technique for manufacturing work. Instead of *describing* the format you want, you *show* the model examples.
+
+### Step 4: Give it examples
+
+```python
+# 03-prompt-engineering/step04_few_shot.py
+import ollama
+
 few_shot_prompt = """You write manufacturing task descriptions. Here are examples of the correct format:
 
 EXAMPLE 1:
 Task: Verify torque on fastener assembly
-Description: Using a calibrated torque wrench (±2% accuracy), verify all fasteners on Assembly #4200 meet specification MT-302 requirements. Check each fastener in sequence per the torque map diagram. Record actual torque values on Form QC-110. Any fastener outside the 25-30 Nm range must be flagged and reported to the shift supervisor before proceeding.
+Description: Using a calibrated torque wrench (accuracy +/-2%), verify all fasteners on Assembly #4200 meet specification MT-302 requirements. Check each fastener in sequence per the torque map diagram. Record actual torque values on Form QC-110. Any fastener outside the 25-30 Nm range must be flagged and reported to the shift supervisor before proceeding.
 
 EXAMPLE 2:
 Task: Clean CNC machine coolant reservoir
@@ -83,92 +136,230 @@ Description: Drain coolant reservoir completely using the designated waste conta
 Now write a description in the same format for:
 Task: Inspect incoming raw steel plates for surface defects"""
 
-print("\n\n=== FEW-SHOT ===")
 response = ollama.chat(
     model="llama3.1:8b",
     messages=[{"role": "user", "content": few_shot_prompt}],
     options={"temperature": 0.1},
 )
-print(response["message"]["content"])
 
-print("\n\n=== COMPARISON ===")
-print("Notice how few-shot output:")
-print("  - Matches the format of the examples")
-print("  - Uses similar level of detail")
-print("  - Includes specific references (forms, specs, tools)")
-print("  - Has a similar tone and sentence structure")
-print("\nThis is the foundation of style matching — and we'll measure it in Module 09.")
+print(response["message"]["content"])
 ```
 
----
+Run it. Compare this to every previous version.
 
-## Exercise 2: System Prompts and Role Definition
+THIS is the big moment. Look at what happened:
+- The format matches your examples (Task/Description structure)
+- The level of detail is similar (specific tools, form numbers, thresholds)
+- The tone matches (professional but accessible)
+- It even invented plausible form numbers and spec references in the same style
+
+The model learned your format from just two examples. This is few-shot prompting, and it's the foundation of the entire manufacturing task description project.
+
+### Step 5: What happens with only one example?
+
+Try removing EXAMPLE 2 from the prompt and running again. What changes?
+
+With one example, the model has less to pattern-match on. Two examples is usually the minimum for reliable style matching. Three is even better -- but there's a point of diminishing returns around 3-5 examples.
+
+### Step 6: Combine system prompt + few-shot
+
+Now let's combine what we've learned:
 
 ```python
-# 03-prompt-engineering/ex2_system_prompts.py
-"""Learn how system prompts shape model behavior."""
-
+# 03-prompt-engineering/step06_combined.py
 import ollama
 
-task = "Write a task description for: 'Replace worn conveyor belt rollers'"
+system_prompt = """You are a senior technical writer at an ISO 9001-certified manufacturing facility.
+You write task descriptions following these rules:
+- Active voice, 8th-grade reading level
+- Include specific tools in parentheses
+- Reference form numbers and specifications
+- Include safety requirements when applicable
+- 50-100 words per description
+- End with a documentation or quality verification step"""
 
-# Different system prompts, same task
-system_prompts = {
-    "no_system": None,
-    "basic_role": "You are a manufacturing technical writer.",
-    "detailed_role": """You are a senior manufacturing technical writer at an ISO 9001-certified facility.
-You write task descriptions that:
-- Start with the action verb
-- Include specific tools, specifications, and forms by reference number
-- Include safety requirements (PPE, lockout/tagout) when applicable
-- Are written at an 8th-grade reading level for operator accessibility
-- Are 50-100 words long
-- End with the quality check or sign-off requirement""",
-    "chain_of_thought": """You are a manufacturing technical writer. Before writing,
-think through:
-1. What tools/equipment does the operator need?
-2. What safety precautions apply?
-3. What are the quality/acceptance criteria?
-4. What documentation is required?
+user_prompt = """Here are examples of correct task descriptions:
 
-Then write a clear, professional task description incorporating your analysis.""",
-}
+Task: Verify torque on fastener assembly
+Description: Using a calibrated torque wrench (accuracy +/-2%), verify all fasteners on Assembly #4200 meet specification MT-302 requirements. Check each fastener in sequence per the torque map diagram. Record actual torque values on Form QC-110. Any fastener outside the 25-30 Nm range must be flagged and reported to the shift supervisor before proceeding.
 
-for name, system_prompt in system_prompts.items():
-    print(f"\n{'='*60}")
-    print(f"System Prompt: {name}")
-    print(f"{'='*60}")
+Task: Clean CNC machine coolant reservoir
+Description: Drain coolant reservoir completely using the designated waste container (yellow, labeled "Used Coolant"). Remove debris from the screen filter and inspect for damage. Flush reservoir with clean water, then refill with Type III coolant to the MAX line. Log the coolant change on the machine maintenance card and initial the daily checklist.
 
-    messages = []
-    if system_prompt:
-        messages.append({"role": "system", "content": system_prompt})
-    messages.append({"role": "user", "content": task})
+Now write a description for:
+Task: Replace worn conveyor belt rollers"""
 
-    response = ollama.chat(
-        model="llama3.1:8b",
-        messages=messages,
-        options={"temperature": 0.1},
-    )
-    print(response["message"]["content"][:400])
+response = ollama.chat(
+    model="llama3.1:8b",
+    messages=[
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ],
+    options={"temperature": 0.1, "repeat_penalty": 1.2},
+)
 
-print("\n=== Key Insight ===")
-print("The 'detailed_role' system prompt with specific constraints produces")
-print("the most consistent, professional output. This is what you'd use in production.")
+print(response["message"]["content"])
 ```
+
+Run it. This is the formula: **system prompt (rules) + few-shot examples (style) + your request**. This combination is what you'll use in production.
 
 ---
 
-## Exercise 3: Building a Reusable Prompt Template
+## Part 4: Chain-of-Thought -- Making the Model Think First
+
+Sometimes you want the model to reason before writing. This is especially useful for complex tasks where it needs to consider safety, tools, and documentation requirements.
+
+### Step 7: Think, then write
 
 ```python
-# 03-prompt-engineering/ex3_prompt_template.py
-"""Build a production-quality prompt template for manufacturing tasks."""
+# 03-prompt-engineering/step07_chain_of_thought.py
+import ollama
 
+system_prompt = """You are a manufacturing technical writer. Before writing a task description,
+think through these questions:
+1. What tools or equipment does the operator need?
+2. What safety precautions apply (PPE, lockout/tagout)?
+3. What are the quality or acceptance criteria?
+4. What documentation must be completed?
+
+Show your thinking, then write the final task description."""
+
+response = ollama.chat(
+    model="llama3.1:8b",
+    messages=[
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": "Write a task description for: Set up CNC lathe for shaft machining run"},
+    ],
+    options={"temperature": 0.1},
+)
+
+print(response["message"]["content"])
+```
+
+Run it. Notice how the output has two parts: the model's reasoning (answering those four questions) and then the actual task description.
+
+This is **chain-of-thought prompting**. The reasoning step forces the model to consider all the important factors before writing. The result is usually more thorough and complete.
+
+**When to use it:** For complex tasks where the model might miss important details. For simple tasks, it's overkill -- just use the system prompt + few-shot approach.
+
+**In production**, you'd probably hide the thinking section and only show the final description to the user. But during development, seeing the model's reasoning helps you debug when the output is wrong.
+
+---
+
+## Part 5: Prompt Versioning -- Track What Works
+
+Here's something your boss will care about. When someone asks "can we trust this AI system?", you need to show the progression. You need to show that you tested different prompts, measured the results, and chose the best one.
+
+Let's build a simple A/B testing setup.
+
+### Step 8: Compare prompt versions
+
+```python
+# 03-prompt-engineering/step08_prompt_versions.py
+import ollama
+import json
+from datetime import datetime
+
+# Define prompt versions -- each one is an iteration
+PROMPT_VERSIONS = {
+    "v1": {
+        "system": "You write manufacturing task descriptions.",
+        "notes": "Minimal -- just the bare instruction",
+    },
+    "v2": {
+        "system": """You write manufacturing task descriptions.
+Keep them under 100 words. Use active voice. Include safety notes.""",
+        "notes": "Added basic constraints: length, voice, safety",
+    },
+    "v3": {
+        "system": """You are a technical writer for an ISO 9001 facility.
+Write task descriptions with numbered steps (3-5 steps).
+Start each step with an action verb.
+Include tool references in parentheses.
+Final step must be documentation or verification.
+Active voice. 50-100 words.""",
+        "notes": "Detailed format, style, and structure constraints",
+    },
+}
+
+test_input = "Write a task description for: Calibrate digital pressure gauge"
+
+results = []
+
+for version, config in PROMPT_VERSIONS.items():
+    response = ollama.chat(
+        model="llama3.1:8b",
+        messages=[
+            {"role": "system", "content": config["system"]},
+            {"role": "user", "content": test_input},
+        ],
+        options={"temperature": 0.0},
+    )
+
+    output = response["message"]["content"]
+
+    result = {
+        "version": version,
+        "notes": config["notes"],
+        "output": output,
+        "word_count": len(output.split()),
+        "has_numbered_steps": any(f"{i}." in output for i in range(1, 6)),
+        "timestamp": datetime.now().isoformat(),
+    }
+    results.append(result)
+
+    print(f"\n{'=' * 60}")
+    print(f"{version}: {config['notes']}")
+    print(f"Words: {result['word_count']} | Numbered steps: {result['has_numbered_steps']}")
+    print(f"{'=' * 60}")
+    print(output[:400])
+
+# Save results
+with open("03-prompt-engineering/prompt_iterations.json", "w") as f:
+    json.dump(results, f, indent=2)
+
+print(f"\n{'=' * 60}")
+print("Results saved to prompt_iterations.json")
+print(f"{'=' * 60}")
+print("\nLook at the progression:")
+print("  v1 -> Generic, unstructured, inconsistent length")
+print("  v2 -> Better, but format is still unpredictable")
+print("  v3 -> Numbered steps, action verbs, consistent structure")
+print("\nEach version is an improvement because we changed ONE thing")
+print("and checked the result. This is prompt engineering as a process.")
+```
+
+Run it:
+
+```bash
+python 03-prompt-engineering/step08_prompt_versions.py
+```
+
+Open the `prompt_iterations.json` file and look at the data. You've got a record of what you tried, what changed, and what the model produced. This is exactly the kind of evidence you'd show when someone questions the AI system.
+
+### Try this: Create a v4
+
+Add a v4 to the `PROMPT_VERSIONS` dictionary. Try adding few-shot examples to the system prompt, or add a constraint about safety being mentioned in step 1. Run it again. Does v4 beat v3? Save and compare.
+
+This manual tracking is what observability tools like Langfuse (Module 12) automate. But understanding the manual process first makes the automation make sense.
+
+---
+
+## Part 6: Building Your Reusable Prompt Template
+
+Everything you've learned so far comes together here. Let's build a production-quality prompt template function that you'll actually use in your capstone project.
+
+### Step 9: The template
+
+```python
+# 03-prompt-engineering/step09_template.py
 import ollama
 from string import Template
 
-# Your production prompt template — version control this!
-TASK_DESCRIPTION_SYSTEM = """You are a technical writer for a manufacturing facility.
+# --- Your production prompt template ---
+# Version control this. Treat it like code, because it IS code.
+
+SYSTEM_PROMPT = """You are a technical writer for a manufacturing facility.
 You produce task descriptions following these exact rules:
 
 FORMAT:
@@ -190,7 +381,7 @@ SAFETY:
 - If the task involves machinery, step 1 must address lockout/tagout or safety
 - Always reference required PPE"""
 
-TASK_DESCRIPTION_USER = Template("""Write a task description for the following:
+USER_TEMPLATE = Template("""Write a task description for the following:
 
 Task: $task_name
 Department: $department
@@ -201,8 +392,8 @@ Write ONLY the task description, no other commentary.""")
 
 
 def generate_task_description(task_name, department, equipment, specifications):
-    """Generate a standardized task description."""
-    user_prompt = TASK_DESCRIPTION_USER.substitute(
+    """Generate a standardized manufacturing task description."""
+    user_prompt = USER_TEMPLATE.substitute(
         task_name=task_name,
         department=department,
         equipment=equipment,
@@ -212,7 +403,7 @@ def generate_task_description(task_name, department, equipment, specifications):
     response = ollama.chat(
         model="llama3.1:8b",
         messages=[
-            {"role": "system", "content": TASK_DESCRIPTION_SYSTEM},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
         ],
         options={"temperature": 0.1, "repeat_penalty": 1.2},
@@ -220,7 +411,8 @@ def generate_task_description(task_name, department, equipment, specifications):
     return response["message"]["content"]
 
 
-# Test with several different tasks
+# --- Test it with real manufacturing scenarios ---
+
 test_tasks = [
     {
         "task_name": "Inspect welded joints on Frame Assembly A",
@@ -232,7 +424,7 @@ test_tasks = [
         "task_name": "Set up CNC lathe for shaft machining",
         "department": "Machining",
         "equipment": "Haas ST-20 CNC lathe, tool setter",
-        "specifications": "Drawing #SH-4402-Rev.B, tolerance ±0.005\"",
+        "specifications": "Drawing #SH-4402-Rev.B, tolerance +/-0.005 in",
     },
     {
         "task_name": "Perform daily forklift inspection",
@@ -243,108 +435,82 @@ test_tasks = [
 ]
 
 for task in test_tasks:
-    print(f"\n{'='*60}")
-    print(f"Task: {task['task_name']}")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print(f"Input: {task['task_name']}")
+    print(f"{'=' * 60}")
     description = generate_task_description(**task)
     print(description)
 
-print("\n=== What You Built ===")
+print(f"\n{'=' * 60}")
+print("WHAT YOU BUILT")
+print(f"{'=' * 60}")
 print("A reusable, version-controlled prompt template that produces")
-print("consistent task descriptions. In Module 06, we'll feed it")
-print("reference documents via RAG. In Module 09, we'll evaluate quality.")
+print("consistent task descriptions across different departments.")
+print("\nNext steps in your journey:")
+print("  Module 04 -> Get this output as structured JSON, not just text")
+print("  Module 06 -> Feed it real reference documents via RAG")
+print("  Module 09 -> Measure quality automatically instead of eyeballing it")
 ```
+
+Run it:
+
+```bash
+python 03-prompt-engineering/step09_template.py
+```
+
+Look at all three outputs. They should follow the same format: CAPS title, numbered steps, action verbs, tool references, safety first for machinery tasks, documentation at the end. Three different tasks, one consistent style.
+
+### Try these experiments:
+
+**Change the department and watch the output adapt:**
+Try changing "Warehouse" to "Clean Room" for the forklift task. What changes in the output?
+
+**Add a few-shot example to the system prompt:**
+Paste one of the generated descriptions back INTO the system prompt as an example. Does the consistency improve?
+
+**Try a different model:**
+Change `model="llama3.1:8b"` to `model="phi3:mini"`. How does the smaller model handle the same structured prompt? What breaks?
+
+**Change one rule at a time:**
+Remove the "8th-grade reading level" constraint. Run it. Does the language get more complex? Add it back. This is how you learn what each constraint actually does.
 
 ---
 
-## Exercise 4: Prompt Iteration Tracking
+## Part 7: The Manufacturing Prompt Engineering Checklist
 
-```python
-# 03-prompt-engineering/ex4_prompt_versioning.py
-"""Track prompt iterations to know which version performs best."""
+After working through all of that, here's what you now know:
 
-import ollama
-import json
-from datetime import datetime
+### Techniques and When to Use Them
 
-# Prompt versions — track changes over time
-PROMPT_VERSIONS = {
-    "v1": {
-        "system": "You write manufacturing task descriptions.",
-        "notes": "Minimal system prompt, no constraints",
-    },
-    "v2": {
-        "system": """You write manufacturing task descriptions.
-Keep them under 100 words. Use active voice. Include safety notes.""",
-        "notes": "Added basic constraints",
-    },
-    "v3": {
-        "system": """You are a technical writer for an ISO 9001 facility.
-Write task descriptions with numbered steps (3-5 steps).
-Start each step with an action verb.
-Include tool references in parentheses.
-Final step must be documentation/verification.
-Active voice. Under 100 words.""",
-        "notes": "Detailed format, style, and structure constraints",
-    },
-}
+| Technique | What It Is | When to Use It |
+|-----------|-----------|----------------|
+| **Zero-shot** | Just ask for what you want | Quick tests, simple tasks |
+| **System prompt** | Tell the model who it is and what rules to follow | Always -- this is your baseline |
+| **Few-shot** | Show 2-3 examples of the output you want | When format and style consistency matter (your main use case) |
+| **Chain-of-thought** | Ask the model to reason before answering | Complex tasks with multiple considerations |
+| **Constrained output** | Specify exact format rules | When you need predictable structure |
+| **Combined** | System prompt + few-shot + constraints | Production use -- this is your prompt template |
 
-test_input = "Write a task description for: Calibrate digital pressure gauge"
+### The Iteration Process
 
-results = []
+1. Start with zero-shot. See what you get.
+2. Add a system prompt with role and constraints. See what improves.
+3. Add few-shot examples. See how style matching kicks in.
+4. Tune one thing at a time. Save each version.
+5. Compare versions. Pick the best one. That's your v1 for production.
 
-for version, config in PROMPT_VERSIONS.items():
-    response = ollama.chat(
-        model="llama3.1:8b",
-        messages=[
-            {"role": "system", "content": config["system"]},
-            {"role": "user", "content": test_input},
-        ],
-        options={"temperature": 0.0},
-    )
-
-    output = response["message"]["content"]
-    result = {
-        "version": version,
-        "notes": config["notes"],
-        "output": output,
-        "word_count": len(output.split()),
-        "has_numbered_steps": any(f"{i}." in output for i in range(1, 6)),
-        "starts_with_verb": output.strip()[0:20],  # Manual check
-        "timestamp": datetime.now().isoformat(),
-    }
-    results.append(result)
-
-    print(f"\n{'='*60}")
-    print(f"{version}: {config['notes']}")
-    print(f"Words: {result['word_count']} | Numbered steps: {result['has_numbered_steps']}")
-    print(f"{'='*60}")
-    print(output[:300])
-
-# Save results for comparison
-with open("03-prompt-engineering/prompt_iterations.json", "w") as f:
-    json.dump(results, f, indent=2)
-
-print("\n\n=== Prompt Versioning Lesson ===")
-print("Saved results to prompt_iterations.json")
-print("As you iterate prompts, ALWAYS:")
-print("  1. Save the prompt version")
-print("  2. Save the output")
-print("  3. Track what changed and why")
-print("  4. Evaluate systematically (not just 'looks good')")
-print("\nThis manual tracking is exactly what Langfuse automates (Module 12).")
-```
+This isn't a one-time thing. As you collect real task descriptions from your facility, those become better few-shot examples. As you learn what the model gets wrong, you add constraints to prevent it. The prompt evolves.
 
 ---
 
 ## Takeaways
 
-1. **Few-shot prompting** is your most powerful tool for style matching — show the model what you want
-2. **System prompts** define the model's behavior constraints — be specific and detailed
-3. **Prompt templates** should be version-controlled like code — they ARE code
-4. **Iteration must be tracked** — random tweaking without measurement is guessing, not engineering
-5. **Your manufacturing prompt template** is a living document that will improve through the journey
+1. **Few-shot prompting is your most powerful tool** -- showing the model examples of what you want beats describing it every time
+2. **System prompts are non-negotiable** -- always define the role, format, style, and constraints
+3. **Change one thing at a time** -- otherwise you don't know what helped and what hurt
+4. **Save every version** -- prompt engineering is an iterative process, and you need the receipts
+5. **Your prompt template is production code** -- version control it, test it, review it like any other code
 
-## Setting the Stage for Module 04
+## What's Next
 
-Your prompts generate good text, but it comes back as unstructured strings. For production systems, you need the LLM to output **structured data** — JSON, specific schemas, exactly the fields you need. Module 04 teaches you to constrain LLM output so it's machine-parseable, not just human-readable.
+Your prompts now generate good text -- but it comes back as a blob of unstructured strings. For a real system, you need the LLM to output **structured data** -- JSON with specific fields, predictable schemas, exactly the data your application can parse and store. Module 04 teaches you to constrain LLM output so it's machine-readable, not just human-readable.

@@ -1,128 +1,111 @@
 # Module 13: Evaluation Datasets & Benchmarks
 
 ## Goal
-Build high-quality evaluation datasets and regression benchmarks. This is the capstone of Phase 3 — after this module, you'll have a complete evaluation infrastructure.
+Build evaluation test infrastructure: a golden dataset, synthetic expansion, and a regression benchmark you can run any time to prove your system is getting better (or catch it getting worse).
 
 ---
 
-## Concepts
+## Why This Matters
 
-### The Evaluation Data Hierarchy
+Your evaluation is only as good as your test data. Let's build it.
 
-```
-                ┌───────────────────┐
-                │   Golden Dataset  │  ← Human-curated, expert-reviewed
-                │   (20-50 examples)│     The source of truth
-                └────────┬──────────┘
-                         │
-                ┌────────┴──────────┐
-                │  Synthetic Dataset│  ← LLM-generated, human-validated
-                │  (200-500 examples│     Broad coverage
-                └────────┬──────────┘
-                         │
-                ┌────────┴──────────┐
-                │ Production Traces │  ← Real user queries + feedback
-                │  (continuous)     │     The real world
-                └───────────────────┘
-```
+Think of it this way. You would never qualify a weld process by testing one joint. You run coupon tests -- dozens of them, across different positions, thicknesses, and operators. Then you have a baseline. Every change gets tested against that baseline.
 
-### What Makes a Good Evaluation Dataset?
-
-1. **Representative** — covers the actual tasks your system handles
-2. **Diverse** — includes easy, medium, and hard cases
-3. **Labeled** — has expected answers or quality scores
-4. **Versioned** — tracked in git, updated intentionally
-5. **Adversarial** — includes edge cases and expected failures
+We are going to build the same thing for your LLM pipeline. A set of known-good examples, a way to expand them, and a benchmark that gives you a number. Before: 72%. After: 86%. That is the data your boss wants to see.
 
 ---
 
 ## Exercise 1: Building a Golden Dataset
 
+A golden dataset is your collection of PERFECT examples. These are written or reviewed by domain experts -- the people who actually know what a good task description looks like.
+
+Let's build one entry at a time.
+
+### Your first golden example
+
 ```python
 # 13-evaluation-datasets-and-benchmarks/ex1_golden_dataset.py
-"""Create a human-curated golden dataset for manufacturing task descriptions."""
+"""Build a golden dataset entry by entry."""
 
 import json
+```
 
-# Your golden dataset: expert-written examples with quality annotations
-GOLDEN_DATASET = [
-    {
-        "id": "gold-001",
-        "task_name": "Inspect welded joints on Frame Assembly A",
-        "department": "Quality Control",
-        "context": "AWS D1.1, Form QC-107, fillet gauge required",
-        "expected_output": """INSPECT WELDED JOINTS ON FRAME ASSEMBLY A
+Start with one example. Think about a task you know well:
+
+```python
+entry_1 = {
+    "id": "gold-001",
+    "task_name": "Inspect welded joints on Frame Assembly A",
+    "department": "Quality Control",
+    "context": "AWS D1.1, Form QC-107, fillet gauge required",
+    "expected_output": """INSPECT WELDED JOINTS ON FRAME ASSEMBLY A
 
 1. Verify lockout/tagout is complete on the welding station.
 2. Don required PPE: safety glasses, leather gloves, inspection magnifier.
-3. Inspect all weld joints visually per AWS D1.1 Section 6 — check for cracks, porosity, and undercut.
-4. Measure weld size with fillet gauge — minimum 6mm leg per drawing.
+3. Inspect all weld joints visually per AWS D1.1 Section 6 -- check for cracks, porosity, and undercut.
+4. Measure weld size with fillet gauge -- minimum 6mm leg per drawing.
 5. Record findings on Form QC-107. Tag defective joints with red HOLD tag and notify supervisor.""",
-        "quality_scores": {
-            "format": 1.0,
-            "safety": 1.0,
-            "specificity": 0.9,
-            "completeness": 0.9,
-            "professionalism": 1.0,
-        },
-        "required_elements": ["numbered_steps", "ppe", "specification_reference", "form_reference", "action_verbs"],
-        "difficulty": "medium",
-        "tags": ["welding", "quality", "inspection"],
-    },
-    {
-        "id": "gold-002",
-        "task_name": "Perform daily forklift pre-operation inspection",
-        "department": "Warehouse",
-        "context": "OSHA 1910.178, Company SOP-FL-001",
-        "expected_output": """DAILY FORKLIFT PRE-OPERATION INSPECTION
+    "required_elements": ["numbered_steps", "ppe", "specification_reference", "form_reference", "action_verbs"],
+    "difficulty": "medium",
+}
+```
+
+Look at what makes this a good golden example:
+
+- **The expected output is what a real expert would write.** Not LLM-generated, not a guess.
+- **It has required_elements** -- a checklist of things the output MUST include.
+- **It has difficulty** -- so you can see if your system handles hard cases vs easy ones.
+- **It has context** -- the reference documents that should inform the answer.
+
+Let's add a second one. Notice how different it is:
+
+```python
+entry_2 = {
+    "id": "gold-002",
+    "task_name": "Perform daily forklift pre-operation inspection",
+    "department": "Warehouse",
+    "context": "OSHA 1910.178, Company SOP-FL-001",
+    "expected_output": """DAILY FORKLIFT PRE-OPERATION INSPECTION
 
 1. Check tire condition and inflation pressure visually.
 2. Test horn, headlights, backup alarm, and strobe light.
-3. Verify hydraulic fluid level — add if below MIN mark on dipstick.
+3. Verify hydraulic fluid level -- add if below MIN mark on dipstick.
 4. Inspect mast chains for wear, damage, or excessive slack.
 5. Test service brake and parking brake before loading.
-6. Record inspection results on daily checklist per SOP-FL-001. Do not operate if any item fails — report to maintenance.""",
-        "quality_scores": {
-            "format": 1.0,
-            "safety": 0.8,
-            "specificity": 0.9,
-            "completeness": 1.0,
-            "professionalism": 1.0,
-        },
-        "required_elements": ["numbered_steps", "specification_reference", "action_verbs", "fail_criteria"],
-        "difficulty": "easy",
-        "tags": ["warehouse", "safety", "daily_check"],
-    },
-    {
-        "id": "gold-003",
-        "task_name": "Set up CNC lathe for precision shaft machining",
-        "department": "Machining",
-        "context": "Drawing SH-4402-Rev.B, tolerance ±0.005\", Haas ST-20",
-        "expected_output": """SET UP CNC LATHE FOR PRECISION SHAFT MACHINING
+6. Record inspection results on daily checklist per SOP-FL-001. Do not operate if any item fails -- report to maintenance.""",
+    "required_elements": ["numbered_steps", "specification_reference", "action_verbs", "fail_criteria"],
+    "difficulty": "easy",
+}
+```
+
+This one is "easy" because forklift inspections are straightforward -- no complex measurements, no precision tolerances. Your system should nail this every time. If it cannot, something is wrong.
+
+Let's add three more to round out the set:
+
+```python
+entry_3 = {
+    "id": "gold-003",
+    "task_name": "Set up CNC lathe for precision shaft machining",
+    "department": "Machining",
+    "context": "Drawing SH-4402-Rev.B, tolerance +/-0.005\", Haas ST-20",
+    "expected_output": """SET UP CNC LATHE FOR PRECISION SHAFT MACHINING
 
 1. Review drawing SH-4402-Rev.B and verify material is staged (confirm heat lot).
-2. Load program from DNC server — verify program number matches setup sheet.
+2. Load program from DNC server -- verify program number matches setup sheet.
 3. Install 3-jaw chuck with soft jaws bored to part diameter +0.002".
-4. Set tool offsets using the Renishaw tool setter. Verify against setup sheet (±0.001").
+4. Set tool offsets using the Renishaw tool setter. Verify against setup sheet (+/-0.001").
 5. Run first article at 50% rapid, 75% feed override. Measure OD, length, and runout.
 6. Record first article measurements on FAIR form. Proceed to production after QC approval.""",
-        "quality_scores": {
-            "format": 1.0,
-            "safety": 0.5,
-            "specificity": 1.0,
-            "completeness": 1.0,
-            "professionalism": 1.0,
-        },
-        "required_elements": ["numbered_steps", "drawing_reference", "measurements", "action_verbs", "first_article"],
-        "difficulty": "hard",
-        "tags": ["machining", "cnc", "precision"],
-    },
-    {
-        "id": "gold-004",
-        "task_name": "Replace hydraulic cylinder seals",
-        "department": "Maintenance",
-        "context": "Machine: 200-ton press, Seal kit P/N HK-200-SEAL, SOP-SAFE-001 for LOTO",
-        "expected_output": """REPLACE HYDRAULIC CYLINDER SEALS
+    "required_elements": ["numbered_steps", "drawing_reference", "measurements", "action_verbs", "first_article"],
+    "difficulty": "hard",
+}
+
+entry_4 = {
+    "id": "gold-004",
+    "task_name": "Replace hydraulic cylinder seals",
+    "department": "Maintenance",
+    "context": "Machine: 200-ton press, Seal kit P/N HK-200-SEAL, SOP-SAFE-001 for LOTO",
+    "expected_output": """REPLACE HYDRAULIC CYLINDER SEALS
 
 1. Perform lockout/tagout per SOP-SAFE-001. Bleed residual hydraulic pressure.
 2. Disconnect hydraulic lines and cap all open ports to prevent contamination.
@@ -131,320 +114,470 @@ GOLDEN_DATASET = [
 5. Install new seals from kit HK-200-SEAL. Lubricate with clean hydraulic fluid before installation.
 6. Reassemble, reinstall, reconnect lines. Bleed air from circuit.
 7. Remove LOTO, pressurize slowly. Check for leaks at zero, 50%, and 100% pressure. Log on PM-105.""",
-        "quality_scores": {
-            "format": 1.0,
-            "safety": 1.0,
-            "specificity": 1.0,
-            "completeness": 1.0,
-            "professionalism": 1.0,
-        },
-        "required_elements": ["numbered_steps", "loto", "part_numbers", "measurements", "pressure_test"],
-        "difficulty": "hard",
-        "tags": ["maintenance", "hydraulics", "safety_critical"],
-    },
-    {
-        "id": "gold-005",
-        "task_name": "Calibrate digital caliper",
-        "department": "Metrology",
-        "context": "NIST-traceable gauge blocks, Calibration SOP-CAL-003, Form CAL-201",
-        "expected_output": """CALIBRATE DIGITAL CALIPER
+    "required_elements": ["numbered_steps", "loto", "part_numbers", "measurements", "pressure_test"],
+    "difficulty": "hard",
+}
+
+entry_5 = {
+    "id": "gold-005",
+    "task_name": "Calibrate digital caliper",
+    "department": "Metrology",
+    "context": "NIST-traceable gauge blocks, Calibration SOP-CAL-003, Form CAL-201",
+    "expected_output": """CALIBRATE DIGITAL CALIPER
 
 1. Clean caliper jaws and gauge blocks with lint-free cloth and isopropyl alcohol.
-2. Zero the caliper with jaws fully closed — verify display reads 0.000".
+2. Zero the caliper with jaws fully closed -- verify display reads 0.000".
 3. Measure gauge blocks at 0.500", 1.000", 2.000", and 4.000" (NIST-traceable set).
-4. Record all readings on Form CAL-201. Tolerance: ±0.001" at each point.
+4. Record all readings on Form CAL-201. Tolerance: +/-0.001" at each point.
 5. If any reading is out of tolerance, adjust per manufacturer instructions and re-test.
 6. Apply calibration sticker with date, technician ID, and next-due date. Return to service.""",
-        "quality_scores": {
-            "format": 1.0,
-            "safety": 0.3,
-            "specificity": 1.0,
-            "completeness": 1.0,
-            "professionalism": 1.0,
-        },
-        "required_elements": ["numbered_steps", "form_reference", "measurements", "tolerance", "calibration_sticker"],
-        "difficulty": "medium",
-        "tags": ["metrology", "calibration", "quality"],
-    },
-]
+    "required_elements": ["numbered_steps", "form_reference", "measurements", "tolerance", "calibration_sticker"],
+    "difficulty": "medium",
+}
+```
 
-# Save the golden dataset
+Now save the whole set:
+
+```python
+golden_dataset = [entry_1, entry_2, entry_3, entry_4, entry_5]
+
 output_path = "13-evaluation-datasets-and-benchmarks/golden_dataset.json"
 with open(output_path, "w") as f:
-    json.dump(GOLDEN_DATASET, f, indent=2)
+    json.dump(golden_dataset, f, indent=2)
 
-print(f"✓ Golden dataset saved: {output_path}")
-print(f"  {len(GOLDEN_DATASET)} examples")
-print(f"  Difficulty distribution: {[d['difficulty'] for d in GOLDEN_DATASET]}")
-print(f"  Departments: {list(set(d['department'] for d in GOLDEN_DATASET))}")
-
-# Dataset statistics
-avg_words = sum(len(d["expected_output"].split()) for d in GOLDEN_DATASET) / len(GOLDEN_DATASET)
-print(f"  Avg expected length: {avg_words:.0f} words")
-
-print("\n=== Golden Dataset Best Practices ===")
-print("1. Have domain experts write/review expected outputs")
-print("2. Include difficulty levels (easy/medium/hard)")
-print("3. Tag with categories for filtered evaluation")
-print("4. Include quality score breakdowns, not just pass/fail")
-print("5. Version in git — treat changes like code changes")
-print("6. Start with 20-50 examples, grow as you find edge cases")
+print(f"Golden dataset saved: {output_path}")
+print(f"  {len(golden_dataset)} examples")
+print(f"  Difficulties: {[e['difficulty'] for e in golden_dataset]}")
+print(f"  Departments: {[e['department'] for e in golden_dataset]}")
 ```
+
+Run it:
+
+```bash
+python 13-evaluation-datasets-and-benchmarks/ex1_golden_dataset.py
+```
+
+Check the JSON file that was created. Open it, look through it. This is your ground truth. Version control this file -- treat changes to it like code changes. A PR to update the golden dataset should be reviewed by a domain expert.
+
+**Five examples is a good start, but it is not enough to be confident.** You need broader coverage. Let's generate more.
 
 ---
 
-## Exercise 2: Synthetic Dataset Generation
+## Exercise 2: Generating Synthetic Test Cases
+
+Writing golden examples by hand is slow. Five took us a while. Getting to 50 would take days. So let's use the LLM to generate synthetic test cases, then review them by hand.
+
+The key word there is "review." Synthetic data is a starting point, not a finished product.
 
 ```python
 # 13-evaluation-datasets-and-benchmarks/ex2_synthetic_dataset.py
-"""Generate a larger synthetic dataset using LLM, validated against golden examples."""
+"""Generate synthetic test cases using the LLM, then review them."""
 
 import ollama
 import json
-import re
+```
 
-# Load golden dataset as reference
+First, load the golden dataset as reference:
+
+```python
 with open("13-evaluation-datasets-and-benchmarks/golden_dataset.json") as f:
     golden = json.load(f)
+```
 
-# Generate synthetic test cases
-GENERATION_PROMPT = """Based on these example manufacturing task descriptions, generate 5 NEW,
-DIFFERENT task descriptions with their metadata.
+Now let's ask the LLM to generate new tasks. We show it our golden examples so it understands the format:
 
-EXAMPLES OF THE FORMAT:
-{examples}
-
-Generate 5 new tasks covering different departments (assembly, painting, shipping,
-electrical, quality lab). Return as a JSON array where each item has:
-- task_name: string
-- department: string
-- context: string (relevant specs/forms)
-- difficulty: "easy", "medium", or "hard"
-- required_elements: list of what a good description should include
-
-Return ONLY the JSON array."""
-
-# Use golden examples as few-shot reference
-examples = "\n\n".join(
-    f"Task: {g['task_name']}\nDept: {g['department']}\nContext: {g['context']}"
+```python
+examples_text = "\n\n".join(
+    f"Task: {g['task_name']}\nDept: {g['department']}\nContext: {g['context']}\nDifficulty: {g['difficulty']}"
     for g in golden[:3]
 )
 
-print("=== Generating Synthetic Test Cases ===\n")
+generation_prompt = f"""Based on these manufacturing task examples, generate 5 NEW and DIFFERENT tasks.
+
+EXAMPLES:
+{examples_text}
+
+Generate 5 new tasks covering these departments: assembly, painting, shipping, electrical, quality lab.
+
+Return a JSON array. Each item needs:
+- task_name: descriptive name
+- department: which department
+- context: relevant specs, forms, standards
+- difficulty: "easy", "medium", or "hard"
+- required_elements: list of what a good description should include
+
+Return ONLY the JSON array, no other text."""
+```
+
+Let's run it:
+
+```python
+print("Generating synthetic test cases...\n")
 response = ollama.chat(
     model="llama3.1:8b",
-    messages=[
-        {"role": "user", "content": GENERATION_PROMPT.format(examples=examples)},
-    ],
+    messages=[{"role": "user", "content": generation_prompt}],
     format="json",
     options={"temperature": 0.7},
 )
 
 try:
-    synthetic_tasks = json.loads(response["message"]["content"])
-    if isinstance(synthetic_tasks, dict):
-        # Handle if wrapped in a key
-        for key in synthetic_tasks:
-            if isinstance(synthetic_tasks[key], list):
-                synthetic_tasks = synthetic_tasks[key]
+    synthetic = json.loads(response["message"]["content"])
+
+    # Handle if the LLM wraps it in a key
+    if isinstance(synthetic, dict):
+        for key in synthetic:
+            if isinstance(synthetic[key], list):
+                synthetic = synthetic[key]
                 break
 
-    print(f"Generated {len(synthetic_tasks)} synthetic test cases:\n")
-    for task in synthetic_tasks:
+    print(f"Generated {len(synthetic)} synthetic test cases:\n")
+    for task in synthetic:
         print(f"  [{task.get('difficulty', '?'):6s}] {task.get('task_name', '?')}")
         print(f"          Dept: {task.get('department', '?')}")
         print(f"          Context: {task.get('context', '?')[:60]}...")
         print()
 
-    # Save synthetic dataset
+except json.JSONDecodeError as e:
+    print(f"JSON parse error: {e}")
+    print(f"Raw output: {response['message']['content'][:200]}")
+    synthetic = []
+```
+
+**Stop and look at these.** Before you save them, ask yourself:
+
+- Do the tasks make sense for a real factory?
+- Are the contexts realistic? (Real spec numbers, real form names?)
+- Is the difficulty rating accurate?
+- Are there any duplicates of your golden examples?
+
+This is the human review step. In production, you would have a domain expert spend 10 minutes checking these. Let's save the ones that pass review:
+
+```python
+if synthetic:
     output_path = "13-evaluation-datasets-and-benchmarks/synthetic_dataset.json"
     with open(output_path, "w") as f:
-        json.dump(synthetic_tasks, f, indent=2)
-    print(f"✓ Saved to {output_path}")
-
-except json.JSONDecodeError as e:
-    print(f"Failed to parse: {e}")
-    print("Raw response:", response["message"]["content"][:300])
-
-print("\n=== Synthetic Dataset Workflow ===")
-print("1. Generate with LLM (this exercise)")
-print("2. Human review — remove bad examples, fix errors")
-print("3. Generate expected outputs for each task")
-print("4. Score expected outputs using golden dataset rubric")
-print("5. Add to your evaluation pipeline")
-print("\nSynthetic data is a STARTING POINT, not a replacement for expert review.")
+        json.dump(synthetic, f, indent=2)
+    print(f"Saved to {output_path}")
+    print("IMPORTANT: Review these before using them in benchmarks!")
+    print("Remove any that look unrealistic or duplicate your golden set.")
 ```
+
+Now let's generate expected outputs for the synthetic tasks too. This gives us something to compare against:
+
+```python
+print("\n--- Generating expected outputs for synthetic tasks ---\n")
+for i, task in enumerate(synthetic[:3]):  # Do 3 to save time
+    response = ollama.chat(
+        model="llama3.1:8b",
+        messages=[
+            {"role": "system", "content": "You are a senior manufacturing technical writer. Write 3-5 numbered steps with safety notes and spec references."},
+            {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task.get('context', 'N/A')}"},
+        ],
+        options={"temperature": 0.0},
+    )
+    task["expected_output"] = response["message"]["content"]
+    print(f"Generated output for: {task['task_name']}")
+    print(f"  Preview: {task['expected_output'][:80]}...")
+    print()
+
+# Re-save with expected outputs
+if synthetic:
+    with open("13-evaluation-datasets-and-benchmarks/synthetic_dataset.json", "w") as f:
+        json.dump(synthetic, f, indent=2)
+    print("Updated synthetic dataset with expected outputs.")
+```
+
+**The workflow is: generate, review, refine, save.** Never trust synthetic data blindly. The LLM is good at creating plausible-looking tasks, but a domain expert catches things like "that is not how you calibrate that instrument" or "that spec number does not exist."
 
 ---
 
-## Exercise 3: Regression Benchmark Suite
+## Exercise 3: Your First Regression Benchmark
+
+Now you have test data. Let's use it. A regression benchmark does one thing: run your system against a fixed set of inputs and give you a score. Then when you change something -- a prompt, a model, a retrieval parameter -- you re-run and compare.
+
+This is the before/after comparison that proves your changes are improvements.
 
 ```python
 # 13-evaluation-datasets-and-benchmarks/ex3_regression_benchmark.py
-"""Build a regression benchmark that catches quality degradation."""
+"""Run a regression benchmark -- get a score, change something, get a new score."""
 
 import ollama
 import json
 import re
 from datetime import datetime
+```
 
+First, let's build the evaluation function. This checks the things we care about:
 
-class RegressionBenchmark:
-    """Run a standardized benchmark and compare against baseline."""
+```python
+def evaluate_output(generated: str, task: dict) -> dict:
+    """Score a generated output against our quality criteria."""
+    scores = {}
 
-    def __init__(self, golden_dataset_path: str):
-        with open(golden_dataset_path) as f:
-            self.golden = json.load(f)
-        self.results_history = []
+    # Does it have numbered steps?
+    steps = re.findall(r'^\s*\d+[\.\)]', generated, re.MULTILINE)
+    scores["has_steps"] = len(steps) >= 3
 
-    def evaluate_single(self, task: dict, generated: str) -> dict:
-        """Evaluate a single generated description against golden standard."""
-        scores = {}
+    # Is the length reasonable?
+    word_count = len(generated.split())
+    scores["good_length"] = 30 <= word_count <= 200
 
-        # Format checks
-        steps = re.findall(r'^\s*\d+[\.\)]', generated, re.MULTILINE)
-        scores["has_steps"] = len(steps) >= 3
+    # Check for required elements
+    element_checks = {
+        "numbered_steps": len(steps) >= 3,
+        "ppe": any(w in generated.lower() for w in ["ppe", "glasses", "gloves", "helmet", "boots"]),
+        "specification_reference": bool(re.search(r'[A-Z]{2,}[\s-]\d', generated)),
+        "form_reference": bool(re.search(r'[Ff]orm\s+[A-Z]', generated)),
+        "action_verbs": any(w in generated.lower() for w in ["inspect", "verify", "check", "install", "remove", "record", "measure"]),
+        "loto": any(w in generated.lower() for w in ["lockout", "tagout", "loto"]),
+        "measurements": bool(re.search(r'\d+\.?\d*\s*(mm|Nm|"|inch|PSI)', generated)),
+        "drawing_reference": bool(re.search(r'[Dd]rawing', generated)),
+        "fail_criteria": any(w in generated.lower() for w in ["fail", "reject", "hold", "do not"]),
+        "part_numbers": bool(re.search(r'[A-Z]{1,3}-\d{3,}', generated)),
+        "tolerance": bool(re.search(r'[+±]', generated)),
+        "first_article": "first article" in generated.lower(),
+        "calibration_sticker": "calibration" in generated.lower(),
+        "pressure_test": "pressure" in generated.lower(),
+    }
 
-        # Length check
-        word_count = len(generated.split())
-        scores["appropriate_length"] = 30 <= word_count <= 200
+    required = task.get("required_elements", [])
+    if required:
+        passed = sum(1 for r in required if element_checks.get(r, False))
+        scores["required_elements"] = passed / len(required)
+    else:
+        scores["required_elements"] = 0.5  # No requirements specified
 
-        # Required elements
-        required = task.get("required_elements", [])
-        element_checks = {
-            "numbered_steps": len(steps) >= 3,
-            "ppe": any(w in generated.lower() for w in ["ppe", "glasses", "gloves", "helmet", "boots"]),
-            "specification_reference": bool(re.search(r'[A-Z]{2,}[\s-]\d', generated)),
-            "form_reference": bool(re.search(r'[Ff]orm\s+[A-Z]', generated)),
-            "action_verbs": any(w in generated.lower() for w in
-                ["inspect", "verify", "check", "install", "remove", "record", "measure"]),
-            "loto": any(w in generated.lower() for w in ["lockout", "tagout", "loto"]),
-            "measurements": bool(re.search(r'\d+\.?\d*\s*(mm|Nm|"|inch|PSI|°)', generated)),
-            "drawing_reference": bool(re.search(r'[Dd]rawing', generated)),
-            "fail_criteria": any(w in generated.lower() for w in ["fail", "reject", "hold", "do not"]),
-            "part_numbers": bool(re.search(r'[A-Z]{1,3}-\d{3,}', generated)),
-            "tolerance": bool(re.search(r'±', generated)),
-            "first_article": "first article" in generated.lower() or "first part" in generated.lower(),
-            "calibration_sticker": "calibration" in generated.lower() and "sticker" in generated.lower(),
-            "pressure_test": "pressure" in generated.lower() and "test" in generated.lower(),
-        }
+    # Overall: average of all scores
+    all_values = [float(v) for v in scores.values()]
+    scores["overall"] = sum(all_values) / len(all_values)
 
-        required_passed = sum(1 for r in required if element_checks.get(r, False))
-        scores["required_elements"] = required_passed / max(len(required), 1)
+    return scores
+```
 
-        # Overall
-        all_binary = [scores["has_steps"], scores["appropriate_length"]]
-        scores["overall"] = (sum(all_binary) / len(all_binary) + scores["required_elements"]) / 2
+Now the benchmark runner. It takes a system prompt and runs every golden example through it:
 
-        return scores
+```python
+def run_benchmark(golden_path: str, system_prompt: str, model: str = "llama3.1:8b") -> dict:
+    """Run the benchmark with a given system prompt."""
+    with open(golden_path) as f:
+        golden = json.load(f)
 
-    def run_benchmark(self, model: str = "llama3.1:8b", system_prompt: str = None) -> dict:
-        """Run the full benchmark suite."""
-        if system_prompt is None:
-            system_prompt = """You are a manufacturing technical writer.
-Write task descriptions with numbered steps, safety requirements, and specific references."""
+    results = []
+    for task in golden:
+        response = ollama.chat(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task['context']}"},
+            ],
+            options={"temperature": 0.0},
+        )
+        generated = response["message"]["content"]
+        scores = evaluate_output(generated, task)
+        scores["task_id"] = task["id"]
+        scores["task_name"] = task["task_name"]
+        results.append(scores)
 
-        results = {
-            "timestamp": datetime.now().isoformat(),
-            "model": model,
-            "scores": [],
-            "summary": {},
-        }
+    # Summary
+    overalls = [r["overall"] for r in results]
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "system_prompt": system_prompt[:80] + "...",
+        "model": model,
+        "avg_score": sum(overalls) / len(overalls),
+        "min_score": min(overalls),
+        "max_score": max(overalls),
+        "passing": sum(1 for o in overalls if o >= 0.7),
+        "total": len(overalls),
+        "per_task": results,
+    }
+```
 
-        for task in self.golden:
-            # Generate
-            response = ollama.chat(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task['context']}"},
-                ],
-                options={"temperature": 0.0},
-            )
-            generated = response["message"]["content"]
+Here is where it gets interesting. Let's run two benchmarks -- one with a bad prompt, one with a good prompt -- and compare:
 
-            # Evaluate
-            scores = self.evaluate_single(task, generated)
-            scores["task_id"] = task["id"]
-            scores["task_name"] = task["task_name"]
-            results["scores"].append(scores)
+```python
+golden_path = "13-evaluation-datasets-and-benchmarks/golden_dataset.json"
 
-        # Calculate summary
-        all_overalls = [s["overall"] for s in results["scores"]]
-        results["summary"] = {
-            "avg_overall": sum(all_overalls) / len(all_overalls),
-            "min_overall": min(all_overalls),
-            "max_overall": max(all_overalls),
-            "total_tasks": len(results["scores"]),
-            "passing_tasks": sum(1 for s in all_overalls if s >= 0.7),
-        }
+# Run 1: Minimal prompt (the lazy approach)
+print("=== Benchmark Run 1: Minimal Prompt ===")
+print("Prompt: 'Write a manufacturing task description.'\n")
 
-        self.results_history.append(results)
-        return results
-
-    def compare_runs(self, run_a: dict, run_b: dict) -> dict:
-        """Compare two benchmark runs."""
-        delta = run_b["summary"]["avg_overall"] - run_a["summary"]["avg_overall"]
-        return {
-            "avg_overall_a": run_a["summary"]["avg_overall"],
-            "avg_overall_b": run_b["summary"]["avg_overall"],
-            "delta": delta,
-            "improved": delta > 0,
-            "significant": abs(delta) > 0.05,  # 5% threshold
-        }
-
-
-# Run the benchmark
-benchmark = RegressionBenchmark("13-evaluation-datasets-and-benchmarks/golden_dataset.json")
-
-# Run 1: Basic prompt
-print("=== Benchmark Run 1: Basic Prompt ===")
-run1 = benchmark.run_benchmark(
-    system_prompt="Write a manufacturing task description."
+run1 = run_benchmark(
+    golden_path,
+    system_prompt="Write a manufacturing task description.",
 )
-print(f"Average: {run1['summary']['avg_overall']:.2%}")
-print(f"Passing: {run1['summary']['passing_tasks']}/{run1['summary']['total_tasks']}")
 
-# Run 2: Detailed prompt
+print(f"  Average score: {run1['avg_score']:.0%}")
+print(f"  Passing (>=70%): {run1['passing']}/{run1['total']}")
+for r in run1["per_task"]:
+    status = "PASS" if r["overall"] >= 0.7 else "FAIL"
+    print(f"    [{status}] {r['task_name'][:45]:45s} {r['overall']:.0%}")
+```
+
+Now the good prompt:
+
+```python
+# Run 2: Detailed prompt (the engineered approach)
 print("\n=== Benchmark Run 2: Detailed Prompt ===")
-run2 = benchmark.run_benchmark(
-    system_prompt="""You are a senior manufacturing technical writer at an ISO 9001 facility.
+detailed_prompt = """You are a senior manufacturing technical writer at an ISO 9001 facility.
 Write task descriptions with:
 - Numbered steps (3-7 steps), each starting with an action verb
-- PPE/safety requirements where applicable
+- PPE and safety requirements where applicable
 - References to specific forms, specifications, and part numbers
 - Measurable acceptance criteria
-- Active voice, 8th-grade reading level"""
-)
-print(f"Average: {run2['summary']['avg_overall']:.2%}")
-print(f"Passing: {run2['summary']['passing_tasks']}/{run2['summary']['total_tasks']}")
+- Active voice, 8th-grade reading level, 50-120 words"""
 
-# Compare
-comparison = benchmark.compare_runs(run1, run2)
-print(f"\n=== Comparison ===")
-print(f"Run 1: {comparison['avg_overall_a']:.2%}")
-print(f"Run 2: {comparison['avg_overall_b']:.2%}")
-print(f"Delta: {comparison['delta']:+.2%}")
-print(f"Improved: {'YES' if comparison['improved'] else 'NO'}")
-print(f"Significant: {'YES' if comparison['significant'] else 'NO'}")
+print(f"Prompt: '{detailed_prompt[:60]}...'\n")
 
-# Per-task breakdown
-print(f"\n=== Per-Task Results (Run 2) ===")
-for score in run2["scores"]:
-    status = "✓" if score["overall"] >= 0.7 else "✗"
-    print(f"  {status} {score['task_name'][:40]:40s} {score['overall']:.2%}")
+run2 = run_benchmark(golden_path, system_prompt=detailed_prompt)
+
+print(f"  Average score: {run2['avg_score']:.0%}")
+print(f"  Passing (>=70%): {run2['passing']}/{run2['total']}")
+for r in run2["per_task"]:
+    status = "PASS" if r["overall"] >= 0.7 else "FAIL"
+    print(f"    [{status}] {r['task_name'][:45]:45s} {r['overall']:.0%}")
 ```
+
+Now the comparison -- this is the payoff:
+
+```python
+# Compare
+delta = run2["avg_score"] - run1["avg_score"]
+print("\n=== Comparison ===")
+print(f"  Run 1 (minimal):  {run1['avg_score']:.0%}")
+print(f"  Run 2 (detailed): {run2['avg_score']:.0%}")
+print(f"  Delta:            {delta:+.0%}")
+
+if delta > 0.05:
+    print(f"  Verdict: IMPROVEMENT. The detailed prompt is better by {delta:.0%}.")
+elif delta < -0.05:
+    print(f"  Verdict: REGRESSION. The detailed prompt is worse by {abs(delta):.0%}!")
+else:
+    print(f"  Verdict: NO SIGNIFICANT CHANGE. Delta is within 5%.")
+```
+
+**THIS is how you prove improvements.** Not "I think it looks better" but "Run 1: 72%. Run 2: 86%. The detailed prompt improved scores by 14 percentage points." That is the kind of evidence that justifies spending time on prompt engineering.
+
+Save the results so you can track over time:
+
+```python
+# Save results for historical tracking
+results_path = "13-evaluation-datasets-and-benchmarks/benchmark_results.json"
+history = {"runs": [run1, run2]}
+with open(results_path, "w") as f:
+    json.dump(history, f, indent=2, default=str)
+print(f"\nResults saved to {results_path}")
+print("Run this again after any change to track improvements over time.")
+```
+
+---
+
+## Exercise 4: Making the Benchmark Easy to Run
+
+A benchmark you do not run is useless. Let's make it a one-liner.
+
+```python
+# 13-evaluation-datasets-and-benchmarks/ex4_benchmark_runner.py
+"""A reusable benchmark runner -- one command to get your score."""
+
+import ollama
+import json
+import re
+import sys
+from datetime import datetime
+
+
+def evaluate_output(generated: str, task: dict) -> dict:
+    """Score a generated output against quality criteria."""
+    steps = re.findall(r'^\s*\d+[\.\)]', generated, re.MULTILINE)
+    element_checks = {
+        "numbered_steps": len(steps) >= 3,
+        "ppe": any(w in generated.lower() for w in ["ppe", "safety", "glasses", "gloves", "helmet"]),
+        "specification_reference": bool(re.search(r'[A-Z]{2,}[\s-]\d', generated)),
+        "form_reference": bool(re.search(r'[Ff]orm\s+[A-Z]', generated)),
+        "action_verbs": any(w in generated.lower() for w in ["inspect", "verify", "check", "install", "record", "measure"]),
+    }
+    required = task.get("required_elements", [])
+    if required:
+        required_score = sum(1 for r in required if element_checks.get(r, False)) / len(required)
+    else:
+        required_score = 0.5
+
+    has_steps = len(steps) >= 3
+    good_length = 30 <= len(generated.split()) <= 200
+    overall = (float(has_steps) + float(good_length) + required_score) / 3
+    return {"has_steps": has_steps, "good_length": good_length, "required_elements": required_score, "overall": overall}
+
+
+def run(prompt_file: str = None):
+    """Run the benchmark."""
+    golden_path = "13-evaluation-datasets-and-benchmarks/golden_dataset.json"
+    with open(golden_path) as f:
+        golden = json.load(f)
+
+    # Load system prompt from file or use default
+    if prompt_file:
+        with open(prompt_file) as f:
+            system_prompt = f.read().strip()
+        print(f"Using prompt from: {prompt_file}")
+    else:
+        system_prompt = "You are a manufacturing technical writer. Write numbered steps with safety and spec references."
+        print("Using default prompt.")
+
+    print(f"Running {len(golden)} test cases...\n")
+
+    total_score = 0
+    passing = 0
+    for task in golden:
+        response = ollama.chat(
+            model="llama3.1:8b",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task['context']}"},
+            ],
+            options={"temperature": 0.0},
+        )
+        scores = evaluate_output(response["message"]["content"], task)
+        total_score += scores["overall"]
+        if scores["overall"] >= 0.7:
+            passing += 1
+        status = "PASS" if scores["overall"] >= 0.7 else "FAIL"
+        print(f"  [{status}] {task['task_name'][:50]:50s} {scores['overall']:.0%}")
+
+    avg = total_score / len(golden)
+    print(f"\n  SCORE: {avg:.0%} ({passing}/{len(golden)} passing)")
+    return avg
+
+
+if __name__ == "__main__":
+    prompt_file = sys.argv[1] if len(sys.argv) > 1 else None
+    run(prompt_file)
+```
+
+Now you can run your benchmark like this:
+
+```bash
+# With default prompt
+python 13-evaluation-datasets-and-benchmarks/ex4_benchmark_runner.py
+
+# With a custom prompt from a file
+echo "You are a manufacturing writer. Write 3-5 steps." > my_prompt.txt
+python 13-evaluation-datasets-and-benchmarks/ex4_benchmark_runner.py my_prompt.txt
+```
+
+One command. One number. That is what makes a benchmark actually useful.
 
 ---
 
 ## Takeaways
 
-1. **Golden datasets are your ground truth** — expert-curated, version-controlled, reviewed
-2. **Synthetic datasets scale coverage** — LLM-generated but human-validated
-3. **Regression benchmarks** catch quality drops before they reach production
-4. **Before/after comparisons** prove that changes are improvements
-5. **Version your eval data like code** — it's just as important
+1. **Golden datasets are your ground truth** -- expert-written, version-controlled, reviewed like code
+2. **Start with 5 examples, grow as you find edge cases** -- you do not need 500 on day one
+3. **Synthetic data scales coverage** but always needs human review -- the LLM generates plausible fakes
+4. **Regression benchmarks give you a number** -- before and after, no more guessing
+5. **Make benchmarks easy to run** -- if it takes more than one command, people will not run it
+6. **Version your eval data in git** -- it is as important as your code
 
-## Setting the Stage for Module 14
+## What's Next
 
-Phase 3 is complete — you now have a comprehensive evaluation infrastructure. Phase 4 explores **advanced techniques** starting with **fine-tuning**. Sometimes RAG + prompting isn't enough, and you need to teach the model new behaviors. Module 14 covers when and how to fine-tune, using LoRA to make it practical on your M4 Pro.
+Phase 3 is complete -- you have a full evaluation infrastructure. Module 14 starts Phase 4 (advanced techniques) with fine-tuning: when RAG plus prompting is not enough, and you need to teach the model new behaviors.

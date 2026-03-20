@@ -1,72 +1,66 @@
 # Module 06: RAG Fundamentals
 
-## Goal
-Build a complete Retrieval-Augmented Generation pipeline from scratch. By the end, your LLM will answer questions using YOUR documents, not just its training data.
+## The Problem We're Solving
 
----
+Let's start by seeing a real problem. Open a Python shell:
 
-## Concepts
-
-### What Is RAG?
-
-RAG = **Retrieval**-Augmented **Generation**
-
-Instead of asking an LLM to answer from memory (training data), you:
-1. **Retrieve** relevant documents from your knowledge base
-2. **Augment** the prompt with those documents
-3. **Generate** an answer grounded in the retrieved context
-
-```
-Without RAG:
-  User: "What's the torque spec for Assembly #4200?"
-  LLM: "I don't know your specific specs." (or worse, hallucmates one)
-
-With RAG:
-  User: "What's the torque spec for Assembly #4200?"
-  → System retrieves: [spec doc showing 25-30 Nm]
-  → Prompt includes: "Based on these documents: [spec doc]..."
-  LLM: "Per specification MT-302, Assembly #4200 requires 25-30 Nm torque."
+```bash
+python3
 ```
 
-### The RAG Pipeline
-
-```
-┌──────────────┐     ┌──────────┐     ┌────────────┐     ┌──────────┐
-│ User Question│ ──→ │ Retrieve │ ──→ │  Augment   │ ──→ │ Generate │
-│              │     │ (vector  │     │ (build     │     │ (LLM     │
-│              │     │  search) │     │  prompt)   │     │  answer) │
-└──────────────┘     └──────────┘     └────────────┘     └──────────┘
-```
-
-### Why RAG Instead of Fine-Tuning?
-
-| | RAG | Fine-Tuning |
-|---|---|---|
-| **Data freshness** | Always up-to-date (just update docs) | Requires retraining |
-| **Traceability** | Can cite sources | Black box |
-| **Setup effort** | Hours | Days to weeks |
-| **Best for** | Factual Q&A, reference lookup | Style/behavior changes |
-
-For your manufacturing task descriptions: **start with RAG**. It's faster, traceable, and your SOPs change frequently.
-
----
-
-## Exercise 1: Build a RAG Pipeline from Scratch
+Now ask Ollama about YOUR company's data:
 
 ```python
-# 06-rag-fundamentals/ex1_basic_rag.py
-"""Build a complete RAG pipeline step by step."""
+import ollama
 
+response = ollama.chat(
+    model="llama3.1:8b",
+    messages=[{"role": "user", "content": "What's the torque spec for Assembly #4200?"}],
+)
+print(response["message"]["content"])
+```
+
+What did you get? Probably one of two things:
+- "I don't have information about Assembly #4200" (honest but useless)
+- A made-up torque spec that sounds confident but is completely wrong (dangerous)
+
+**That's the problem.** The LLM doesn't know YOUR company's data. It was trained on the internet, not your SOPs.
+
+Let's fix that.
+
+---
+
+## Step 1: Load Some Company Documents into ChromaDB
+
+First, let's set up a small knowledge base. Think of this as a filing cabinet the LLM can search through.
+
+Create a new file:
+
+```bash
+touch 06-rag-fundamentals/rag_workshop.py
+```
+
+Start with your imports and some sample manufacturing docs:
+
+```python
 import chromadb
 import ollama
 
-# ============================================================
-# STEP 1: Prepare your knowledge base
-# ============================================================
-print("=== Step 1: Loading Knowledge Base ===")
-
-# These represent your company's actual documents
 manufacturing_docs = [
+    {
+        "id": "SOP-MT-302",
+        "text": """TORQUE SPECIFICATION MT-302
+Assembly: Frame Assembly #4200
+All fasteners: Grade 8, zinc plated
+M8 bolts: 25-30 Nm
+M10 bolts: 45-55 Nm
+M12 bolts: 80-100 Nm
+Sequence: Star pattern per torque diagram
+Tool: Calibrated torque wrench, +/-2% accuracy
+Verification: 10% sampling by QC after assembly
+Documentation: Record on Form QC-110""",
+        "metadata": {"type": "specification", "department": "assembly"},
+    },
     {
         "id": "WPS-201",
         "text": """WELDING PROCEDURE SPECIFICATION WPS-201
@@ -75,8 +69,8 @@ Base Metal: Carbon Steel (A36)
 Filler Metal: ER70S-6, 0.035" diameter
 Shielding Gas: 75% Argon / 25% CO2 at 25-30 CFH
 Preheat: Not required for material under 1" thick
-Interpass Temperature: 400°F maximum
-Post-Weld: Visual inspection required. Ultrasonic testing for critical joints.
+Interpass Temperature: 400F maximum
+Post-Weld: Visual inspection required. UT for critical joints.
 Acceptance Criteria: Per AWS D1.1 Section 6""",
         "metadata": {"type": "specification", "department": "welding"},
     },
@@ -91,22 +85,8 @@ Visual inspection checklist:
 - Hardware installation (all fasteners present and torqued)
 - Paint/coating (uniform coverage, no runs, drips, or bare spots)
 Pass criteria: All checklist items must pass
-Failure action: Tag with red "HOLD" tag, notify shift supervisor""",
+Failure action: Tag with red HOLD tag, notify shift supervisor""",
         "metadata": {"type": "form", "department": "quality"},
-    },
-    {
-        "id": "SOP-MT-302",
-        "text": """TORQUE SPECIFICATION MT-302
-Assembly: Frame Assembly #4200
-All fasteners: Grade 8, zinc plated
-M8 bolts: 25-30 Nm
-M10 bolts: 45-55 Nm
-M12 bolts: 80-100 Nm
-Sequence: Follow the torque pattern diagram (star pattern)
-Tool: Calibrated torque wrench, ±2% accuracy
-Verification: 10% sampling by QC after assembly
-Documentation: Record on Form QC-110""",
-        "metadata": {"type": "specification", "department": "assembly"},
     },
     {
         "id": "SOP-SAFE-001",
@@ -117,7 +97,7 @@ Before maintenance or adjustment:
 3. Isolate all energy sources (electrical, hydraulic, pneumatic)
 4. Apply personal lock and tag to each energy isolation point
 5. Release any stored energy (bleed hydraulics, discharge capacitors)
-6. Verify zero energy state — attempt to restart
+6. Verify zero energy state - attempt to restart
 After maintenance:
 1. Remove tools and replace guards
 2. Verify all personnel are clear
@@ -129,8 +109,8 @@ After maintenance:
         "id": "SOP-CNC-042",
         "text": """CNC MACHINE DAILY STARTUP PROCEDURE
 1. Visual inspection of machine exterior and work area
-2. Check coolant level — refill if below MIN line
-3. Check way oil level — refill if below MIN line
+2. Check coolant level - refill if below MIN line
+3. Check way oil level - refill if below MIN line
 4. Power on machine, home all axes
 5. Run spindle warmup cycle (Program O9000): 5 min at 500 RPM, 5 min at 2000 RPM
 6. Verify axis positions with test indicator
@@ -139,12 +119,11 @@ After maintenance:
         "metadata": {"type": "SOP", "department": "machining"},
     },
 ]
+```
 
-# ============================================================
-# STEP 2: Create vector store and load documents
-# ============================================================
-print("=== Step 2: Creating Vector Store ===")
+Now load them into ChromaDB:
 
+```python
 client = chromadb.Client()
 collection = client.create_collection(name="manufacturing_kb")
 
@@ -153,28 +132,71 @@ collection.add(
     documents=[doc["text"] for doc in manufacturing_docs],
     metadatas=[doc["metadata"] for doc in manufacturing_docs],
 )
-print(f"✓ Loaded {collection.count()} documents")
+print(f"Loaded {collection.count()} documents")
+```
 
-# ============================================================
-# STEP 3: Build the RAG function
-# ============================================================
+Run it. You should see `Loaded 5 documents`. That's your knowledge base -- five manufacturing docs, embedded and searchable.
 
-def rag_query(question: str, n_results: int = 2) -> dict:
-    """Complete RAG pipeline: retrieve → augment → generate."""
+---
 
-    # RETRIEVE: Find relevant documents
-    results = collection.query(query_texts=[question], n_results=n_results)
-    retrieved_docs = results["documents"][0]
-    retrieved_ids = results["ids"][0]
-    distances = results["distances"][0]
+## Step 2: Retrieval -- Finding the Right Documents
 
-    # AUGMENT: Build the prompt with context
-    context = "\n\n---\n\n".join(
-        f"[Source: {doc_id}]\n{doc}"
-        for doc_id, doc in zip(retrieved_ids, retrieved_docs)
-    )
+Before we involve the LLM at all, let's just do the **retrieval** part. Ask ChromaDB to find documents relevant to our original question:
 
-    augmented_prompt = f"""Answer the question based ONLY on the provided context documents.
+```python
+results = collection.query(
+    query_texts=["What's the torque spec for Assembly #4200?"],
+    n_results=2,
+)
+
+for doc_id, doc_text, distance in zip(
+    results["ids"][0],
+    results["documents"][0],
+    results["distances"][0],
+):
+    print(f"\n--- {doc_id} (distance: {distance:.3f}) ---")
+    print(doc_text[:200])
+```
+
+Run this. What do you see?
+
+It should pull back `SOP-MT-302` (the torque spec) as the top result. Notice the distance score -- lower means more relevant.
+
+Let's try another query:
+
+```python
+results = collection.query(
+    query_texts=["What PPE do I need for welding?"],
+    n_results=2,
+)
+
+for doc_id in results["ids"][0]:
+    print(doc_id)
+```
+
+Did it find `WPS-201`? That document mentions welding helmets, gloves, and FR clothing. ChromaDB understood that "PPE for welding" is semantically related to those safety items even though the doc never uses the letters "PPE."
+
+That's the **Retrieve** step working. Now let's give these results to the LLM.
+
+---
+
+## Step 3: Augmentation -- Building the Prompt
+
+Here's the key idea: we take the retrieved documents and stuff them into the prompt. The LLM reads them as context, then answers based on what it read.
+
+Let's build an augmented prompt:
+
+```python
+question = "What's the torque spec for M10 bolts on Assembly #4200?"
+
+results = collection.query(query_texts=[question], n_results=2)
+
+context = "\n\n---\n\n".join(
+    f"[Source: {doc_id}]\n{doc}"
+    for doc_id, doc in zip(results["ids"][0], results["documents"][0])
+)
+
+augmented_prompt = f"""Answer the question based ONLY on the provided context documents.
 If the answer is not in the context, say "I don't have that information in my documents."
 Always cite which source document(s) you used.
 
@@ -185,14 +207,164 @@ QUESTION: {question}
 
 ANSWER:"""
 
-    # GENERATE: Get the LLM's response
+print(augmented_prompt)
+```
+
+Run it and look at what gets printed. Notice how the prompt now contains the actual torque spec document. The LLM won't have to guess -- the answer is right there in front of it.
+
+---
+
+## Step 4: Generation -- The LLM Answers with Real Data
+
+Now send that augmented prompt to the LLM:
+
+```python
+response = ollama.chat(
+    model="llama3.1:8b",
+    messages=[
+        {
+            "role": "system",
+            "content": "You are a manufacturing knowledge assistant. "
+            "Answer questions using only the provided documents. "
+            "Be specific and cite sources.",
+        },
+        {"role": "user", "content": augmented_prompt},
+    ],
+    options={"temperature": 0.0},
+)
+
+print(response["message"]["content"])
+```
+
+What did you get?
+
+It should say something like: "Per specification MT-302, M10 bolts on Frame Assembly #4200 require 45-55 Nm of torque."
+
+**The LLM just cited a REAL spec number from YOUR documents.** That's RAG.
+
+---
+
+## Step 5: Side-by-Side -- Without RAG vs. With RAG
+
+Let's see the difference clearly. Add this to your script:
+
+```python
+question = "What shielding gas should I use for MIG welding carbon steel?"
+
+# WITHOUT RAG
+print("=== WITHOUT RAG ===")
+no_rag = ollama.chat(
+    model="llama3.1:8b",
+    messages=[{"role": "user", "content": question}],
+    options={"temperature": 0.0},
+)
+print(no_rag["message"]["content"][:300])
+
+# WITH RAG
+print("\n=== WITH RAG ===")
+results = collection.query(query_texts=[question], n_results=2)
+context = "\n\n".join(
+    f"[{doc_id}]: {doc}"
+    for doc_id, doc in zip(results["ids"][0], results["documents"][0])
+)
+
+with_rag = ollama.chat(
+    model="llama3.1:8b",
+    messages=[
+        {
+            "role": "system",
+            "content": "Answer using only the provided documents. Cite sources.",
+        },
+        {
+            "role": "user",
+            "content": f"Documents:\n{context}\n\nQuestion: {question}",
+        },
+    ],
+    options={"temperature": 0.0},
+)
+print(with_rag["message"]["content"][:300])
+```
+
+Run it. Notice the difference:
+- Without RAG: generic answer, maybe correct in general, but no reference to YOUR welding procedure
+- With RAG: cites WPS-201, mentions your specific gas mix (75% Argon / 25% CO2 at 25-30 CFH)
+
+In manufacturing, the difference between "generally correct" and "per YOUR company spec" is everything.
+
+---
+
+## Step 6: What Happens When the Answer ISN'T in the Docs?
+
+This is just as important. Try asking something your knowledge base doesn't cover:
+
+```python
+question = "What is the company's vacation policy?"
+
+results = collection.query(query_texts=[question], n_results=2)
+context = "\n\n".join(results["documents"][0])
+
+response = ollama.chat(
+    model="llama3.1:8b",
+    messages=[
+        {
+            "role": "system",
+            "content": "Answer using only the provided documents. "
+            "If the answer is not in the documents, say "
+            "'I don't have that information in my documents.'",
+        },
+        {
+            "role": "user",
+            "content": f"Documents:\n{context}\n\nQuestion: {question}",
+        },
+    ],
+    options={"temperature": 0.0},
+)
+print(response["message"]["content"])
+```
+
+It should say something like "I don't have that information in my documents."
+
+**That's a GOOD answer.** In manufacturing, "I don't know" is infinitely better than a hallucinated policy that could get someone in trouble. The system prompt instruction to say "I don't have that information" is your safety net.
+
+---
+
+## Step 7: Build the RAG Function
+
+Now let's wrap what we've built into a clean, reusable function. Each piece should look familiar -- we're just combining the steps:
+
+```python
+def rag_query(question: str, n_results: int = 2) -> dict:
+    """Complete RAG pipeline: retrieve, augment, generate."""
+
+    # RETRIEVE
+    results = collection.query(query_texts=[question], n_results=n_results)
+    retrieved_docs = results["documents"][0]
+    retrieved_ids = results["ids"][0]
+    distances = results["distances"][0]
+
+    # AUGMENT
+    context = "\n\n---\n\n".join(
+        f"[Source: {doc_id}]\n{doc}"
+        for doc_id, doc in zip(retrieved_ids, retrieved_docs)
+    )
+
+    augmented_prompt = f"""Answer based ONLY on the provided context.
+If the answer isn't in the context, say "I don't have that information."
+Cite your source document(s).
+
+CONTEXT:
+{context}
+
+QUESTION: {question}"""
+
+    # GENERATE
     response = ollama.chat(
         model="llama3.1:8b",
         messages=[
             {
                 "role": "system",
-                "content": "You are a manufacturing knowledge assistant. Answer questions "
-                "using only the provided documents. Be specific and cite sources.",
+                "content": "You are a manufacturing knowledge assistant. "
+                "Be specific and cite sources.",
             },
             {"role": "user", "content": augmented_prompt},
         ],
@@ -204,203 +376,204 @@ ANSWER:"""
         "answer": response["message"]["content"],
         "sources": retrieved_ids,
         "distances": distances,
-        "context": context,
     }
-
-
-# ============================================================
-# STEP 4: Test it!
-# ============================================================
-print("\n=== Step 3-4: RAG in Action ===\n")
-
-test_questions = [
-    "What is the torque specification for M10 bolts on Assembly #4200?",
-    "What shielding gas do I use for MIG welding carbon steel?",
-    "How do I perform lockout/tagout?",
-    "What should I do if a part fails visual inspection?",
-    "What's the CNC spindle warmup procedure?",
-    "What is the company's vacation policy?",  # Not in our docs!
-]
-
-for question in test_questions:
-    result = rag_query(question)
-    print(f"Q: {result['question']}")
-    print(f"Sources: {result['sources']}")
-    print(f"A: {result['answer'][:200]}...")
-    print()
 ```
+
+Try it with a few questions:
+
+```python
+result = rag_query("How do I perform lockout/tagout?")
+print(f"Sources: {result['sources']}")
+print(f"Answer: {result['answer'][:300]}")
+```
+
+```python
+result = rag_query("What's the CNC spindle warmup procedure?")
+print(f"Sources: {result['sources']}")
+print(f"Answer: {result['answer'][:300]}")
+```
+
+```python
+result = rag_query("What should I do if a part fails visual inspection?")
+print(f"Sources: {result['sources']}")
+print(f"Answer: {result['answer'][:300]}")
+```
+
+Notice how the last one pulls from the QC-107 form -- "Tag with red HOLD tag, notify shift supervisor." That's a real procedure from your docs, not a generic answer.
 
 ---
 
-## Exercise 2: RAG for Task Description Generation
+## Step 8: Metadata Filtering -- Narrowing the Search
+
+When you have hundreds of documents, you don't always want to search everything. Imagine an operator in the welding department -- they probably only need welding docs.
+
+Let's try filtering by metadata:
 
 ```python
-# 06-rag-fundamentals/ex2_rag_task_generation.py
-"""Use RAG to generate task descriptions grounded in actual company docs."""
+# Search ONLY in the quality department
+results = collection.query(
+    query_texts=["welding"],
+    n_results=3,
+    where={"department": "quality"},
+)
+for doc_id, doc in zip(results["ids"][0], results["documents"][0]):
+    print(f"[{doc_id}] {doc[:80]}...")
+```
 
-import chromadb
-import ollama
+Without the filter, "welding" would match the welding spec WPS-201. With the quality department filter, it only returns QC-107 (the quality form that mentions weld inspection). That's more precise when you know which department you're asking about.
 
-# Set up knowledge base (same as Exercise 1)
-client = chromadb.Client()
-collection = client.create_collection(name="manufacturing_kb_v2")
+Try combining filters:
 
-# Your company's reference documents
-docs = [
-    {"id": "ref-001", "text": "Standard PPE for welding: Auto-darkening helmet (shade 10-13), leather welding gloves, FR clothing, steel-toe boots, safety glasses under helmet."},
-    {"id": "ref-002", "text": "All welding inspection per AWS D1.1 Section 6. Visual inspection criteria: no cracks, no incomplete fusion, undercut max 1/32 inch, porosity max 3/8 inch in any 12-inch length."},
-    {"id": "ref-003", "text": "Quality forms: QC-107 for visual inspection, QC-110 for dimensional, QC-115 for weld-specific. All forms require inspector badge number and date."},
-    {"id": "ref-004", "text": "CNC tooling: Use only pre-approved inserts from the approved vendor list (AVL). Carbide inserts for steel, CBN for hardened steel, PCD for aluminum. Log all tool changes in MES."},
-    {"id": "ref-005", "text": "Existing task description format: Title in caps, 3-5 numbered steps starting with action verbs, safety note at bottom, reference to applicable forms/specs."},
-    {"id": "ref-006", "text": "Forklift certification required per OSHA 1910.178. Recertification every 3 years. Daily pre-operation inspection required. Speed limit: 5 MPH in production areas, 3 MPH near pedestrians."},
+```python
+# Search for procedures (not specs, not forms) across all departments
+results = collection.query(
+    query_texts=["daily procedures"],
+    n_results=3,
+    where={"type": "SOP"},
+)
+for doc_id in results["ids"][0]:
+    print(doc_id)
+```
+
+This returns only SOPs, filtering out specifications and forms. Think of it like asking the filing cabinet "show me only the procedure binders, not the spec sheets."
+
+---
+
+## Step 9: RAG-Powered Task Description Generator
+
+Now let's put it all together for something genuinely useful -- generating task descriptions grounded in your company's actual documents.
+
+First, add some reference documents about your company's format and standards:
+
+```python
+# Create a fresh collection with task-focused docs
+task_collection = client.create_collection(name="task_kb")
+
+task_docs = [
+    {
+        "id": "ref-ppe",
+        "text": "Standard PPE for welding: Auto-darkening helmet (shade 10-13), "
+        "leather welding gloves, FR clothing, steel-toe boots, safety glasses under helmet.",
+    },
+    {
+        "id": "ref-weld-inspect",
+        "text": "All welding inspection per AWS D1.1 Section 6. Visual inspection criteria: "
+        "no cracks, no incomplete fusion, undercut max 1/32 inch, "
+        "porosity max 3/8 inch in any 12-inch length.",
+    },
+    {
+        "id": "ref-forms",
+        "text": "Quality forms: QC-107 for visual inspection, QC-110 for dimensional, "
+        "QC-115 for weld-specific. All forms require inspector badge number and date.",
+    },
+    {
+        "id": "ref-cnc-tooling",
+        "text": "CNC tooling: Use only pre-approved inserts from approved vendor list (AVL). "
+        "Carbide inserts for steel, CBN for hardened steel, PCD for aluminum. "
+        "Log all tool changes in MES.",
+    },
+    {
+        "id": "ref-format",
+        "text": "Task description format: Title in ALL CAPS, 3-5 numbered steps starting "
+        "with action verbs, safety note at bottom, reference to applicable forms/specs.",
+    },
+    {
+        "id": "ref-forklift",
+        "text": "Forklift certification required per OSHA 1910.178. "
+        "Recertification every 3 years. Daily pre-operation inspection required. "
+        "Speed limit: 5 MPH in production areas, 3 MPH near pedestrians.",
+    },
 ]
 
-collection.add(
-    ids=[d["id"] for d in docs],
-    documents=[d["text"] for d in docs],
-    metadatas=[{"source": d["id"]} for d in docs],
+task_collection.add(
+    ids=[d["id"] for d in task_docs],
+    documents=[d["text"] for d in task_docs],
 )
+print(f"Loaded {task_collection.count()} reference docs")
+```
 
+Now build the task generator:
 
-def generate_task_with_rag(task_name: str) -> dict:
-    """Generate a task description using RAG for company-specific details."""
+```python
+def generate_task(task_name: str) -> str:
+    """Generate a task description grounded in company docs."""
 
-    # Retrieve relevant reference docs
-    results = collection.query(query_texts=[task_name], n_results=3)
-    context_docs = results["documents"][0]
-    source_ids = results["ids"][0]
-
-    context = "\n".join(f"- [{sid}]: {doc}" for sid, doc in zip(source_ids, context_docs))
+    results = task_collection.query(query_texts=[task_name], n_results=3)
+    context = "\n".join(
+        f"- [{doc_id}]: {doc}"
+        for doc_id, doc in zip(results["ids"][0], results["documents"][0])
+    )
 
     response = ollama.chat(
         model="llama3.1:8b",
         messages=[
             {
                 "role": "system",
-                "content": """You are a manufacturing technical writer.
-Generate task descriptions using the company's reference documents.
-Follow the company's existing format exactly.
-Include specific form numbers, spec references, and PPE from the reference docs.
-Do NOT make up form numbers or specs — use ONLY what's in the reference documents.""",
+                "content": "You are a manufacturing technical writer. "
+                "Generate task descriptions using the company reference documents. "
+                "Follow the company format exactly. "
+                "Include specific form numbers, spec references, and PPE "
+                "from the reference docs. "
+                "Do NOT make up form numbers or specs -- use ONLY what's provided.",
             },
             {
                 "role": "user",
-                "content": f"""Generate a task description for: "{task_name}"
-
-Use these company reference documents:
-{context}
-
-Write the task description now, following the company format.""",
+                "content": f'Generate a task description for: "{task_name}"\n\n'
+                f"Company reference documents:\n{context}",
             },
         ],
         options={"temperature": 0.1},
     )
 
-    return {
-        "task_name": task_name,
-        "description": response["message"]["content"],
-        "sources_used": source_ids,
-    }
-
-
-# Test
-tasks = [
-    "Perform visual inspection of MIG weld on steel frame",
-    "Set up CNC lathe for aluminum shaft machining",
-    "Conduct daily forklift pre-operation check",
-]
-
-for task_name in tasks:
-    result = generate_task_with_rag(task_name)
-    print(f"{'='*60}")
-    print(f"Task: {result['task_name']}")
-    print(f"Sources used: {result['sources_used']}")
-    print(f"{'='*60}")
-    print(result["description"])
-    print()
-
-print("=== Why This Is Better Than No RAG ===")
-print("The generated descriptions reference YOUR company's actual:")
-print("  - Form numbers (QC-107, QC-110, QC-115)")
-print("  - Specifications (AWS D1.1 Section 6)")
-print("  - PPE requirements (specific to your facility)")
-print("  - Existing format conventions")
-print("\nBut how do we KNOW it's actually better? Module 09-13 answers that.")
+    return response["message"]["content"]
 ```
 
----
-
-## Exercise 3: RAG Pipeline with Metadata Filtering
+Try it:
 
 ```python
-# 06-rag-fundamentals/ex3_metadata_filtering.py
-"""Use metadata to filter retrieval results for more precise RAG."""
-
-import chromadb
-
-client = chromadb.Client()
-collection = client.create_collection(name="filtered_kb")
-
-# Documents with rich metadata
-docs = [
-    {"id": "1", "text": "Welding procedure for carbon steel frames", "meta": {"dept": "welding", "type": "procedure", "safety_level": "high"}},
-    {"id": "2", "text": "Welding procedure for aluminum panels", "meta": {"dept": "welding", "type": "procedure", "safety_level": "high"}},
-    {"id": "3", "text": "Weld inspection checklist for quality control", "meta": {"dept": "quality", "type": "checklist", "safety_level": "medium"}},
-    {"id": "4", "text": "CNC machining setup for steel parts", "meta": {"dept": "machining", "type": "procedure", "safety_level": "medium"}},
-    {"id": "5", "text": "Safety training for press brake operation", "meta": {"dept": "press", "type": "training", "safety_level": "critical"}},
-    {"id": "6", "text": "Annual press brake maintenance schedule", "meta": {"dept": "press", "type": "maintenance", "safety_level": "high"}},
-]
-
-collection.add(
-    ids=[d["id"] for d in docs],
-    documents=[d["text"] for d in docs],
-    metadatas=[d["meta"] for d in docs],
-)
-
-# Search with metadata filters
-print("=== Search: 'welding' in quality department only ===")
-results = collection.query(
-    query_texts=["welding"],
-    n_results=3,
-    where={"dept": "quality"},  # Only quality dept docs
-)
-for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-    print(f"  [{meta['dept']}] {doc}")
-
-print("\n=== Search: 'safety' with critical safety level ===")
-results = collection.query(
-    query_texts=["safety procedures"],
-    n_results=3,
-    where={"safety_level": "critical"},
-)
-for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-    print(f"  [{meta['safety_level']}] {doc}")
-
-print("\n=== Search: procedures in press department ===")
-results = collection.query(
-    query_texts=["how to operate"],
-    n_results=3,
-    where={"$and": [{"dept": "press"}, {"type": {"$ne": "maintenance"}}]},
-)
-for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-    print(f"  [{meta['dept']}/{meta['type']}] {doc}")
-
-print("\n=== Why Metadata Filtering Matters ===")
-print("Without filters: 'welding' returns welding AND quality docs")
-print("With dept filter: only returns quality dept's welding-related docs")
-print("This precision dramatically improves RAG quality for large doc sets.")
+print(generate_task("Perform visual inspection of MIG weld on steel frame"))
 ```
+
+Look at the output. Does it reference form QC-107? QC-115? Does it mention AWS D1.1 Section 6?
+
+**Those are REAL form numbers and spec references from YOUR documents.** The LLM didn't make them up -- it read them from the context we provided.
+
+Try a couple more:
+
+```python
+print("=" * 60)
+print(generate_task("Set up CNC lathe for aluminum shaft machining"))
+```
+
+```python
+print("=" * 60)
+print(generate_task("Conduct daily forklift pre-operation check"))
+```
+
+Notice how each task description pulls different reference docs. The welding task gets PPE and inspection refs. The CNC task gets tooling refs. The forklift task gets the OSHA certification info. RAG finds the right context for each task.
 
 ---
 
-## Takeaways
+## What You Built
 
-1. **RAG = Retrieve + Augment + Generate** — the core pattern for grounding LLMs in your data
-2. **Your documents become the LLM's knowledge** — it can reference specific form numbers, specs, and procedures
-3. **"I don't have that information"** is a GOOD answer — better than hallucinating
-4. **Metadata filtering** makes retrieval more precise when you have many documents
-5. **This is your capstone architecture** — everything from here builds on this pipeline
+Let's recap what just happened:
 
-## Setting the Stage for Module 07
+1. **Retrieve** -- ChromaDB finds documents relevant to the question using semantic search
+2. **Augment** -- Those documents get stuffed into the prompt as context
+3. **Generate** -- The LLM answers based on what it read, citing real sources
 
-Your basic RAG pipeline works. But "works" isn't enough for production. Module 07 covers **advanced RAG techniques** — better chunking, hybrid search (combining keyword + semantic), re-ranking retrieved documents, and query transformation. These techniques can dramatically improve retrieval quality, which directly improves answer quality.
+```
+User Question --> ChromaDB Search --> Build Prompt with Docs --> LLM Answer
+                  (Retrieve)         (Augment)                  (Generate)
+```
+
+That's the entire RAG pattern. Everything from here builds on this pipeline.
+
+## Key Takeaways
+
+- **RAG grounds the LLM in your data** -- it answers from your docs, not its training data
+- **"I don't have that information" is a GOOD answer** -- way better than hallucinating
+- **Metadata filtering** makes retrieval precise when you have many documents
+- **The quality of retrieval determines the quality of answers** -- if you retrieve the wrong docs, you get wrong answers
+
+That last point is the segue into Module 07. Our basic retrieval works, but it's not perfect. What happens when the search pulls back the wrong documents? Let's find out.
