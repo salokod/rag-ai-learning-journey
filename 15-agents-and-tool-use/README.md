@@ -134,7 +134,7 @@ messages = [
 ]
 
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:32b",
     messages=messages,
     tools=tools,
 )
@@ -175,7 +175,7 @@ if response["message"].get("tool_calls"):
     messages.append({"role": "tool", "content": result})
 
     # Now the model can answer with real data
-    final = ollama.chat(model="llama3.1:8b", messages=messages)
+    final = ollama.chat(model="qwen3:32b", messages=messages)
     print(f"\nFinal answer:\n{final['message']['content']}")
 ```
 
@@ -308,7 +308,7 @@ print(f"Question: {question}\n")
 
 # First call -- model requests tools
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:32b",
     messages=messages,
     tools=tools,
     options={"temperature": 0.0},
@@ -327,7 +327,7 @@ if response["message"].get("tool_calls"):
 
     # Final answer with all the real data
     final = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:32b",
         messages=messages,
         options={"temperature": 0.0},
     )
@@ -370,7 +370,7 @@ def lookup_spec(spec_id: str) -> str:
 
 # Pass the function directly -- Ollama builds the schema from your docstring + type hints
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:32b",
     messages=[
         {"role": "user", "content": "What's the torque spec for Frame #4200?"},
     ],
@@ -496,7 +496,7 @@ def agent_loop(question: str, max_rounds: int = 5) -> str:
         print(f"\n--- Round {round_num + 1} ---")
 
         response = ollama.chat(
-            model="llama3.1:8b",
+            model="qwen3:32b",
             messages=messages,
             tools=tools,
             options={"temperature": 0.0},
@@ -565,7 +565,7 @@ import ollama
 class ManufacturingAgent:
     """Agent that looks up specs, forms, and PPE before writing task descriptions."""
 
-    def __init__(self, model: str = "llama3.1:8b"):
+    def __init__(self, model: str = "qwen3:32b"):
         self.model = model
         self.history = []  # Track what the agent looked up
 

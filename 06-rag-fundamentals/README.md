@@ -14,7 +14,7 @@ Now ask Ollama about YOUR company's data:
 import ollama
 
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[{"role": "user", "content": "What's the torque spec for Assembly #4200?"}],
 )
 print(response["message"]["content"])
@@ -220,7 +220,7 @@ Now send that augmented prompt to the LLM:
 
 ```python
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[
         {
             "role": "system",
@@ -254,7 +254,7 @@ question = "What shielding gas should I use for MIG welding carbon steel?"
 # WITHOUT RAG
 print("=== WITHOUT RAG ===")
 no_rag = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[{"role": "user", "content": question}],
     options={"temperature": 0.0},
 )
@@ -269,7 +269,7 @@ context = "\n\n".join(
 )
 
 with_rag = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[
         {
             "role": "system",
@@ -304,7 +304,7 @@ results = collection.query(query_texts=[question], n_results=2)
 context = "\n\n".join(results["documents"][0])
 
 response = ollama.chat(
-    model="llama3.1:8b",
+    model="qwen3:8b",
     messages=[
         {
             "role": "system",
@@ -359,7 +359,7 @@ QUESTION: {question}"""
 
     # GENERATE
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[
             {
                 "role": "system",
@@ -505,7 +505,7 @@ def generate_task(task_name: str) -> str:
     )
 
     response = ollama.chat(
-        model="llama3.1:8b",
+        model="qwen3:8b",
         messages=[
             {
                 "role": "system",

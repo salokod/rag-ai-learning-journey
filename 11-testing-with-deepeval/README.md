@@ -111,7 +111,7 @@ import ollama
 
 
 class TaskDescriptionGenerator:
-    def __init__(self, model="llama3.1:8b"):
+    def __init__(self, model="qwen3:8b"):
         self.model = model
         self.system_prompt = """You are a manufacturing technical writer.
 Write task descriptions with numbered steps (3-8 steps).
