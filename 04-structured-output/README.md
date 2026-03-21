@@ -168,7 +168,7 @@ Works fine. Now let's see what happens with bad data:
 task = SimpleTask(title="Check seals", steps="not a list", time_minutes=30)
 ```
 
-What happened? Pydantic actually coerced `"not a list"` into a list with one element. Interesting. Try something it really can't fix:
+What happened? `ValidationError` -- Pydantic v2 rejects a string where a list is expected. No coercion, no guessing. Try another broken case:
 
 ```python
 task = SimpleTask(title="Check seals", steps=["Step 1"], time_minutes="not a number")
@@ -554,7 +554,7 @@ Structured output makes structured evaluation possible. When everything is free-
 
 ## What You Now Know
 
-- **`format="json"`** forces Ollama to return valid JSON every time
+- **`response_format={"type": "json_object"}`** forces the model to return valid JSON every time
 - **Schema in the prompt** tells the LLM which fields to include
 - **Pydantic models** validate the output -- catching type mismatches, missing fields, and format violations
 - **Validation failures are features, not bugs** -- they prevent bad data from reaching your systems
