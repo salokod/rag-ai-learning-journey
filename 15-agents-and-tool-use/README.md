@@ -84,7 +84,13 @@ Here's where it gets interesting. You describe your function to the LLM using a 
 # 15-agents-and-tool-use/ex1_first_tool.py
 """Your first tool call -- the LLM decides to look up a spec."""
 
-import ollama
+from openai import OpenAI
+import json
+
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 SPECS = {
     "MT-302": "Frame #4200: M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. Star pattern.",
@@ -133,13 +139,13 @@ messages = [
     {"role": "user", "content": "What's the torque spec for M10 bolts on Frame #4200?"},
 ]
 
-response = ollama.chat(
+response = client.chat.completions.create(
     model="llama3.3:70b",
     messages=messages,
     tools=tools,
 )
 
-print(response["message"])
+print(response.choices[0].message)
 ```
 
 Run it:
@@ -159,10 +165,11 @@ The model CHOSE to call your function. It decided it needed more information bef
 The LLM asked to call your function, but it can't actually run code. YOU run it, then give the result back. Add this:
 
 ```python
-if response["message"].get("tool_calls"):
-    tool_call = response["message"]["tool_calls"][0]
-    func_name = tool_call["function"]["name"]
-    func_args = tool_call["function"]["arguments"]
+msg = response.choices[0].message
+if msg.tool_calls:
+    tool_call = msg.tool_calls[0]
+    func_name = tool_call.function.name
+    func_args = json.loads(tool_call.function.arguments)
 
     print(f"Model wants to call: {func_name}({func_args})")
 
@@ -171,12 +178,12 @@ if response["message"].get("tool_calls"):
     print(f"Tool returned: {result}")
 
     # Feed the result back to the model
-    messages.append(response["message"])
-    messages.append({"role": "tool", "content": result})
+    messages.append(msg)
+    messages.append({"role": "tool", "content": result, "tool_call_id": tool_call.id})
 
     # Now the model can answer with real data
-    final = ollama.chat(model="llama3.3:70b", messages=messages)
-    print(f"\nFinal answer:\n{final['message']['content']}")
+    final = client.chat.completions.create(model="llama3.3:70b", messages=messages)
+    print(f"\nFinal answer:\n{final.choices[0].message.content}")
 ```
 
 Run it again. This time you should see three things:
@@ -196,7 +203,13 @@ One tool is useful. Three tools are powerful. Let's give the model a full toolki
 # 15-agents-and-tool-use/ex2_multi_tool.py
 """Multiple tools -- the model picks which ones it needs."""
 
-import ollama
+from openai import OpenAI
+import json
+
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 # Three "databases"
 SPECS = {
@@ -307,34 +320,35 @@ messages = [
 print(f"Question: {question}\n")
 
 # First call -- model requests tools
-response = ollama.chat(
+response = client.chat.completions.create(
     model="llama3.3:70b",
     messages=messages,
     tools=tools,
-    options={"temperature": 0.0},
+    temperature=0.0,
 )
 
-if response["message"].get("tool_calls"):
-    messages.append(response["message"])
+msg = response.choices[0].message
+if msg.tool_calls:
+    messages.append(msg)
 
     print("=== Tool Calls ===")
-    for tc in response["message"]["tool_calls"]:
-        name = tc["function"]["name"]
-        args = tc["function"]["arguments"]
+    for tc in msg.tool_calls:
+        name = tc.function.name
+        args = json.loads(tc.function.arguments)
         result = execute_tool(name, args)
         print(f"  {name}({args}) -> {result[:60]}...")
-        messages.append({"role": "tool", "content": result})
+        messages.append({"role": "tool", "content": result, "tool_call_id": tc.id})
 
     # Final answer with all the real data
-    final = ollama.chat(
+    final = client.chat.completions.create(
         model="llama3.3:70b",
         messages=messages,
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
-    print(f"\n=== Final Answer ===\n{final['message']['content']}")
+    print(f"\n=== Final Answer ===\n{final.choices[0].message.content}")
 else:
     print("Model answered without tools:")
-    print(response["message"]["content"])
+    print(msg.content)
 ```
 
 Run it:
@@ -349,15 +363,30 @@ The final answer has real spec numbers, the correct form, and actual PPE require
 
 ---
 
-## Step 8: Passing Python Functions Directly (Ollama 0.4+)
+## Step 8: Why JSON Schemas Are the Right Approach
 
-If you're running Ollama 0.4 or later, there's a shortcut. Instead of writing tool schemas by hand, you can pass Python functions directly:
+The native Ollama Python library has a shortcut that lets you pass Python functions directly as tools (`tools=[lookup_spec]`). Ollama builds the schema from your docstrings and type hints automatically.
+
+We're not using that shortcut — and that's intentional.
+
+The OpenAI SDK (which is what we use throughout this course) requires explicit JSON schemas. This is actually the **industry-standard approach** because:
+- It works identically with OpenAI, Azure OpenAI, Together AI, vLLM, and any other provider
+- The schema is the contract between your code and the model — explicit is better than implicit
+- You control exactly what description the model sees for each parameter
+
+Here's a quick reference for the schema pattern you've already been writing:
 
 ```python
-# 15-agents-and-tool-use/ex3_direct_functions.py
-"""Ollama 0.4+: pass functions directly instead of writing schemas."""
+# 15-agents-and-tool-use/ex3_schema_reference.py
+"""Tool schema reference -- the explicit JSON schema approach."""
 
-import ollama
+from openai import OpenAI
+import json
+
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 SPECS = {
     "MT-302": "Frame #4200: M8=25-30Nm, M10=45-55Nm, M12=80-100Nm.",
@@ -365,24 +394,40 @@ SPECS = {
 }
 
 def lookup_spec(spec_id: str) -> str:
-    """Look up a manufacturing specification by its ID (e.g., MT-302, WPS-201)."""
+    """Look up a manufacturing specification by its ID."""
     return SPECS.get(spec_id.upper(), f"Spec '{spec_id}' not found.")
 
-# Pass the function directly -- Ollama builds the schema from your docstring + type hints
-response = ollama.chat(
+# Explicit JSON schema -- works with any OpenAI-compatible provider
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "lookup_spec",
+            "description": "Look up a manufacturing specification by its ID (e.g., MT-302, WPS-201)",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "spec_id": {
+                        "type": "string",
+                        "description": "The specification ID to look up",
+                    }
+                },
+                "required": ["spec_id"],
+            },
+        },
+    },
+]
+
+response = client.chat.completions.create(
     model="llama3.3:70b",
-    messages=[
-        {"role": "user", "content": "What's the torque spec for Frame #4200?"},
-    ],
-    tools=[lookup_spec],  # <-- just pass the function!
+    messages=[{"role": "user", "content": "What's the torque spec for Frame #4200?"}],
+    tools=tools,
 )
 
-print(response["message"])
+print(response.choices[0].message)
 ```
 
-Notice the difference: `tools=[lookup_spec]` instead of that big JSON schema. Ollama reads your function's name, docstring, and type hints to build the schema automatically.
-
-This is convenient, but the manual schema gives you more control over descriptions. Use whichever you prefer.
+The schema is explicit, portable, and production-ready. Write it once, use it anywhere.
 
 ---
 
@@ -402,7 +447,13 @@ Let's build it:
 # 15-agents-and-tool-use/ex4_agent_loop.py
 """A simple agent loop: think, act, observe, repeat."""
 
-import ollama
+from openai import OpenAI
+import json
+
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 # Same databases as before
 SPECS = {
@@ -495,28 +546,28 @@ def agent_loop(question: str, max_rounds: int = 5) -> str:
     for round_num in range(max_rounds):
         print(f"\n--- Round {round_num + 1} ---")
 
-        response = ollama.chat(
+        response = client.chat.completions.create(
             model="llama3.3:70b",
             messages=messages,
             tools=tools,
-            options={"temperature": 0.0},
+            temperature=0.0,
         )
 
-        msg = response["message"]
+        msg = response.choices[0].message
 
         # If there are tool calls, execute them and continue the loop
-        if msg.get("tool_calls"):
+        if msg.tool_calls:
             messages.append(msg)
-            for tc in msg["tool_calls"]:
-                name = tc["function"]["name"]
-                args = tc["function"]["arguments"]
+            for tc in msg.tool_calls:
+                name = tc.function.name
+                args = json.loads(tc.function.arguments)
                 result = execute_tool(name, args)
                 print(f"  Tool: {name}({args}) -> {result[:70]}")
-                messages.append({"role": "tool", "content": result})
+                messages.append({"role": "tool", "content": result, "tool_call_id": tc.id})
         else:
             # No tool calls -- the model is done gathering info and giving its answer
             print(f"  Agent finished after {round_num + 1} round(s).")
-            return msg["content"]
+            return msg.content
 
     return "Max rounds reached."
 ```
@@ -559,7 +610,14 @@ Let's put it all together in a clean class. This is the culmination of everythin
 # 15-agents-and-tool-use/ex5_manufacturing_agent.py
 """A complete manufacturing agent that gathers info then writes task descriptions."""
 
-import ollama
+from openai import OpenAI
+import json
+
+
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 
 class ManufacturingAgent:
@@ -637,21 +695,21 @@ class ManufacturingAgent:
         ]
 
         for round_num in range(max_rounds):
-            response = ollama.chat(
+            response = client.chat.completions.create(
                 model=self.model, messages=messages, tools=tools,
-                options={"temperature": 0.0},
+                temperature=0.0,
             )
-            msg = response["message"]
+            msg = response.choices[0].message
 
-            if msg.get("tool_calls"):
+            if msg.tool_calls:
                 messages.append(msg)
-                for tc in msg["tool_calls"]:
-                    name = tc["function"]["name"]
-                    args = tc["function"]["arguments"]
+                for tc in msg.tool_calls:
+                    name = tc.function.name
+                    args = json.loads(tc.function.arguments)
                     result = self._execute_tool(name, args)
-                    messages.append({"role": "tool", "content": result})
+                    messages.append({"role": "tool", "content": result, "tool_call_id": tc.id})
             else:
-                return msg["content"]
+                return msg.content
 
         return "Agent reached max rounds without finishing."
 

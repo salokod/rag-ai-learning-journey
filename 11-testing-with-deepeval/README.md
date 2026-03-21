@@ -107,12 +107,16 @@ Now delete or comment out `test_bad_output_fails` (it was just for demonstration
 # 11-testing-with-deepeval/task_generator.py
 """The task description generator we're testing."""
 
-import ollama
+from openai import OpenAI
 
 
 class TaskDescriptionGenerator:
     def __init__(self, model="gemma3:12b"):
         self.model = model
+        self.llm = OpenAI(
+            base_url="http://localhost:11434/v1",
+            api_key="ollama",
+        )
         self.system_prompt = """You are a manufacturing technical writer.
 Write task descriptions with numbered steps (3-8 steps).
 Start each step with an action verb.
@@ -128,12 +132,12 @@ Keep under 150 words."""
                 + (f"\n\nReference: {context}" if context else ""),
             },
         ]
-        response = ollama.chat(
+        response = self.llm.chat.completions.create(
             model=self.model,
             messages=messages,
-            options={"temperature": 0.0},
+            temperature=0.0,
         )
-        return response["message"]["content"]
+        return response.choices[0].message.content
 ```
 
 Quick sanity check -- run this interactively:

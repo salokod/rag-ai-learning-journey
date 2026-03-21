@@ -240,7 +240,7 @@ First, the system prompt. This is critical -- it defines the format standard:
 ```python
 # 19-capstone-manufacturing-tasks/stage2_rag_generator.py
 import chromadb
-import ollama
+from openai import OpenAI
 from stage1_knowledge_base import build_knowledge_base
 
 SYSTEM_PROMPT = """You are a senior manufacturing technical writer at an ISO 9001 certified facility.
@@ -268,6 +268,10 @@ class TaskDescriptionGenerator:
     def __init__(self, collection, model="llama3.3:70b"):
         self.collection = collection
         self.model = model
+        self.llm = OpenAI(
+            base_url="http://localhost:11434/v1",
+            api_key="ollama",
+        )
 
     def retrieve(self, task_name, department=None, n_results=4):
         query_kwargs = {"query_texts": [task_name], "n_results": n_results}
@@ -312,19 +316,19 @@ REFERENCE DOCUMENTS:
 
 Write the task description now, following ALL format rules exactly."""
 
-        response = ollama.chat(
+        response = self.llm.chat.completions.create(
             model=self.model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
-            options={"temperature": 0.1, "repeat_penalty": 1.2},
+            temperature=0.1,
         )
 
         return {
             "task_name": task_name,
             "department": department,
-            "description": response["message"]["content"],
+            "description": response.choices[0].message.content,
             "sources": sources,
             "model": self.model,
         }
@@ -413,12 +417,16 @@ First, the heuristic checks:
 # 19-capstone-manufacturing-tasks/stage3_evaluation.py
 import re
 import json
-import ollama
+from openai import OpenAI
 
 
 class TaskDescriptionEvaluator:
     def __init__(self, model="llama3.3:70b"):
         self.model = model
+        self.llm = OpenAI(
+            base_url="http://localhost:11434/v1",
+            api_key="ollama",
+        )
 
     def heuristic_eval(self, text):
         """Fast, deterministic quality checks. No LLM needed."""
@@ -502,7 +510,7 @@ Now add the LLM-as-judge for the deeper evaluation:
 ```python
     def llm_eval(self, text, task_context=""):
         """Deep quality evaluation using LLM judge."""
-        response = ollama.chat(
+        response = self.llm.chat.completions.create(
             model=self.model,
             messages=[
                 {
@@ -521,12 +529,12 @@ Return ONLY JSON: {"clarity": N, "completeness": N, "safety": N, "specificity": 
                     "content": f"Context: {task_context}\n\nTask Description:\n{text}",
                 },
             ],
-            format="json",
-            options={"temperature": 0.0},
+            response_format={"type": "json_object"},
+            temperature=0.0,
         )
 
         try:
-            scores = json.loads(response["message"]["content"])
+            scores = json.loads(response.choices[0].message.content)
             for key in ["clarity", "completeness", "safety",
                         "specificity", "professionalism", "overall"]:
                 if key in scores and isinstance(scores[key], (int, float)):

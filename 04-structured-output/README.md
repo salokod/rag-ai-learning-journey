@@ -21,13 +21,18 @@ python3
 Now ask the model for JSON the naive way:
 
 ```python
-import ollama
+from openai import OpenAI
 
-response = ollama.chat(
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",  # Ollama doesn't need a real key, but the library requires something
+)
+
+response = client.chat.completions.create(
     model="gemma3:12b",
     messages=[{"role": "user", "content": "Describe the task 'Inspect hydraulic press seals'. Return as JSON."}],
 )
-print(response["message"]["content"])
+print(response.choices[0].message.content)
 ```
 
 Run that. What do you get back?
@@ -48,7 +53,7 @@ See the problem? The model wrapped it in markdown code fences. It added a senten
 
 ```python
 import json
-json.loads(response["message"]["content"])
+json.loads(response.choices[0].message.content)
 ```
 
 Boom -- `json.JSONDecodeError`. Your code can't use this. Run it a few more times and you might get different wrapping each time. Sometimes markdown fences, sometimes a preamble sentence, sometimes bare JSON if you're lucky.
@@ -62,18 +67,18 @@ In a production system -- say, a system that generates task descriptions and sto
 Ollama has a built-in fix. Let's try it:
 
 ```python
-response = ollama.chat(
+response = client.chat.completions.create(
     model="gemma3:12b",
     messages=[{"role": "user", "content": "Describe the task 'Inspect hydraulic press seals' as JSON."}],
-    format="json",
+    response_format={"type": "json_object"},
 )
-print(response["message"]["content"])
+print(response.choices[0].message.content)
 ```
 
 Notice the difference? No markdown fences. No preamble. Just raw JSON. Let's verify it parses:
 
 ```python
-result = json.loads(response["message"]["content"])
+result = json.loads(response.choices[0].message.content)
 print(type(result))
 ```
 
@@ -94,7 +99,7 @@ What fields did you get? Probably something random -- maybe `"task"`, maybe `"na
 Let's combine `format="json"` with a schema in the prompt. Try this:
 
 ```python
-response = ollama.chat(
+response = client.chat.completions.create(
     model="gemma3:12b",
     messages=[
         {
@@ -107,10 +112,10 @@ response = ollama.chat(
         },
         {"role": "user", "content": "Task: Inspect hydraulic press cylinder seals for wear and leakage"},
     ],
-    format="json",
+    response_format={"type": "json_object"},
 )
 
-result = json.loads(response["message"]["content"])
+result = json.loads(response.choices[0].message.content)
 print(json.dumps(result, indent=2))
 ```
 
@@ -285,9 +290,14 @@ Look at that output. Pydantic auto-generates a JSON schema from your model. The 
 Let's wire it all together:
 
 ```python
-import ollama
+from openai import OpenAI
 import json
 from pydantic import BaseModel, Field, field_validator
+
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 
 class TaskDescription(BaseModel):
@@ -309,7 +319,7 @@ class TaskDescription(BaseModel):
 
 schema = json.dumps(TaskDescription.model_json_schema(), indent=2)
 
-response = ollama.chat(
+response = client.chat.completions.create(
     model="gemma3:12b",
     messages=[
         {
@@ -318,10 +328,10 @@ response = ollama.chat(
         },
         {"role": "user", "content": "Task: Calibrate temperature sensors on curing oven"},
     ],
-    format="json",
+    response_format={"type": "json_object"},
 )
 
-raw = json.loads(response["message"]["content"])
+raw = json.loads(response.choices[0].message.content)
 print("Raw from LLM:")
 print(json.dumps(raw, indent=2))
 ```
@@ -385,9 +395,14 @@ Save this as `04-structured-output/full_pipeline.py`:
 ```python
 """Full structured output pipeline: prompt + JSON mode + Pydantic validation."""
 
-import ollama
+from openai import OpenAI
 import json
 from pydantic import BaseModel, Field, field_validator
+
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",  # Ollama doesn't need a real key, but the library requires something
+)
 
 
 class TaskDescription(BaseModel):
@@ -423,7 +438,7 @@ def generate_task(task_input: str, max_retries: int = 2) -> TaskDescription | No
     schema = json.dumps(TaskDescription.model_json_schema(), indent=2)
 
     for attempt in range(max_retries + 1):
-        response = ollama.chat(
+        response = client.chat.completions.create(
             model="gemma3:12b",
             messages=[
                 {
@@ -440,11 +455,11 @@ def generate_task(task_input: str, max_retries: int = 2) -> TaskDescription | No
                 },
                 {"role": "user", "content": f"Create a task description for: {task_input}"},
             ],
-            format="json",
-            options={"temperature": 0.0},
+            response_format={"type": "json_object"},
+            temperature=0.0,
         )
 
-        raw = json.loads(response["message"]["content"])
+        raw = json.loads(response.choices[0].message.content)
 
         try:
             task = TaskDescription.model_validate(raw)
