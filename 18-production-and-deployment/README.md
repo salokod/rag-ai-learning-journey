@@ -77,9 +77,14 @@ Let's wire up ChromaDB and Ollama. First, the knowledge base setup:
 ```python
 # 18-production-and-deployment/step2_rag_api.py
 from fastapi import FastAPI
+from openai import OpenAI
 import chromadb
-import ollama
 import uvicorn
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 app = FastAPI(title="Manufacturing RAG API")
 ```
@@ -129,17 +134,17 @@ async def query_kb(req: QueryRequest):
     context = "\n".join(results["documents"][0])
     source_ids = results["ids"][0]
 
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="llama3.3:70b",
         messages=[
             {"role": "system", "content": "Answer using only the context. Cite sources."},
             {"role": "user", "content": f"Context:\n{context}\n\nQ: {req.question}"},
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
 
     return {
-        "answer": response["message"]["content"],
+        "answer": response.choices[0].message.content,
         "sources": source_ids,
     }
 ```
@@ -316,7 +321,7 @@ async def health_check():
 
     # Can we reach Ollama?
     try:
-        ollama.list()
+        llm.models.list()
         checks["ollama"] = "ok"
     except Exception as e:
         checks["ollama"] = f"error: {e}"
@@ -466,15 +471,15 @@ async def query_kb(req: QueryRequest, request: Request):
         raise HTTPException(status_code=503, detail="Knowledge base unavailable")
 
     try:
-        response = ollama.chat(
+        response = llm.chat.completions.create(
             model="llama3.3:70b",
             messages=[
                 {"role": "system", "content": "Answer using only the context. Cite sources."},
                 {"role": "user", "content": f"Context:\n{context}\n\nQ: {req.question}"},
             ],
-            options={"temperature": 0.0},
+            temperature=0.0,
         )
-        answer = response["message"]["content"]
+        answer = response.choices[0].message.content
     except Exception as e:
         # Graceful degradation: return sources even if LLM fails
         return {
@@ -545,8 +550,8 @@ Now let's put it all together. Here's the complete server with every production 
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
+from openai import OpenAI
 import chromadb
-import ollama
 import hashlib
 import json
 import time
@@ -666,6 +671,10 @@ def setup_kb():
     return collection
 
 # --- Initialize everything ---
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 app = FastAPI(title="Manufacturing RAG API", version="1.0.0")
 kb = setup_kb()
 cache = ResponseCache()
@@ -708,15 +717,15 @@ async def query_kb_endpoint(req: QueryRequest, request: Request):
 
     # Generate
     try:
-        response = ollama.chat(
+        response = llm.chat.completions.create(
             model="llama3.3:70b",
             messages=[
                 {"role": "system", "content": "Answer using only the context. Cite sources."},
                 {"role": "user", "content": f"Context:\n{context}\n\nQ: {req.question}"},
             ],
-            options={"temperature": 0.0},
+            temperature=0.0,
         )
-        answer = response["message"]["content"]
+        answer = response.choices[0].message.content
 
         # Track tokens
         input_tokens = len(req.question) // 4
@@ -746,7 +755,7 @@ async def health_check():
     """Health check -- verifies all dependencies are reachable."""
     checks = {}
     try:
-        ollama.list()
+        llm.models.list()
         checks["ollama"] = "ok"
     except Exception as e:
         checks["ollama"] = f"error: {e}"

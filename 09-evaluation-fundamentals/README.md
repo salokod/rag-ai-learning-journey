@@ -185,11 +185,16 @@ Let's start with a single criterion. Keep it focused:
 
 ```python
 # 09-evaluation-fundamentals/step7_llm_judge.py
-import ollama
+from openai import OpenAI
 import json
 
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
+
 def judge_clarity(text):
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {
@@ -203,10 +208,10 @@ def judge_clarity(text):
             },
             {"role": "user", "content": text},
         ],
-        format="json",
-        options={"temperature": 0.0},
+        response_format={"type": "json_object"},
+        temperature=0.0,
     )
-    return json.loads(response["message"]["content"])
+    return json.loads(response.choices[0].message.content)
 ```
 
 Try it on your good task:
@@ -252,16 +257,16 @@ Return JSON:
 }"""
 
 def judge_full(text):
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {"role": "system", "content": JUDGE_PROMPT},
             {"role": "user", "content": text},
         ],
-        format="json",
-        options={"temperature": 0.0},
+        response_format={"type": "json_object"},
+        temperature=0.0,
     )
-    return json.loads(response["message"]["content"])
+    return json.loads(response.choices[0].message.content)
 ```
 
 Run it:
@@ -322,10 +327,15 @@ Sometimes you don't need absolute scores. You just need to know: **is version A 
 
 ```python
 # 09-evaluation-fundamentals/step10_ab_compare.py
-import ollama
+from openai import OpenAI
 import json
 
-COMPARE_PROMPT = """You are comparing two manufacturing task descriptions.
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
+
+COMPARE_PROMPT ="""You are comparing two manufacturing task descriptions.
 Which is BETTER for actual use on a manufacturing floor?
 
 Consider:
@@ -352,13 +362,13 @@ def compare_versions(task, version_a, version_b):
     prompt = COMPARE_PROMPT.format(
         task=task, version_a=version_a, version_b=version_b
     )
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[{"role": "user", "content": prompt}],
-        format="json",
-        options={"temperature": 0.0},
+        response_format={"type": "json_object"},
+        temperature=0.0,
     )
-    return json.loads(response["message"]["content"])
+    return json.loads(response.choices[0].message.content)
 ```
 
 Let's test it -- RAG-enhanced vs. plain LLM output:
@@ -413,7 +423,7 @@ Now let's combine everything into a single evaluation pipeline. Heuristics for s
 
 ```python
 # 09-evaluation-fundamentals/step12_pipeline.py
-import ollama
+from openai import OpenAI
 import json
 import re
 
@@ -423,6 +433,10 @@ class TaskDescriptionEvaluator:
 
     def __init__(self, model="gemma3:12b"):
         self.model = model
+        self.llm = OpenAI(
+            base_url="http://localhost:11434/v1",
+            api_key="ollama",
+        )
 
     def heuristic_score(self, text):
         """Fast, deterministic checks. Runs in microseconds."""
@@ -448,7 +462,7 @@ class TaskDescriptionEvaluator:
 
     def llm_score(self, text):
         """Deep quality assessment. Takes a few seconds."""
-        response = ollama.chat(
+        response = self.llm.chat.completions.create(
             model=self.model,
             messages=[
                 {
@@ -462,10 +476,10 @@ class TaskDescriptionEvaluator:
                 },
                 {"role": "user", "content": text},
             ],
-            format="json",
-            options={"temperature": 0.0},
+            response_format={"type": "json_object"},
+            temperature=0.0,
         )
-        scores = json.loads(response["message"]["content"])
+        scores = json.loads(response.choices[0].message.content)
         # Normalize to 0-1
         normalized = {}
         for key, val in scores.items():

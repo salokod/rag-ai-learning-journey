@@ -94,7 +94,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from langfuse.decorators import observe
-import ollama
+from openai import OpenAI
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 ```
 
 That is the setup. Now let's write one function and decorate it:
@@ -103,15 +108,15 @@ That is the setup. Now let's write one function and decorate it:
 @observe()
 def describe_task(task_name: str) -> str:
     """Generate a short task description."""
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {"role": "system", "content": "Write a 2-sentence manufacturing task description."},
             {"role": "user", "content": task_name},
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
-    return response["message"]["content"]
+    return response.choices[0].message.content
 ```
 
 That is it. The `@observe()` decorator tells Langfuse: "trace this function -- capture its name, inputs, outputs, and timing."
@@ -161,21 +166,26 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from langfuse.decorators import observe
-import ollama
+from openai import OpenAI
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 
 @observe()
 def describe_task(task_name: str) -> str:
     """Generate a short task description."""
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {"role": "system", "content": "Write a 2-sentence manufacturing task description."},
             {"role": "user", "content": task_name},
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
-    return response["message"]["content"]
+    return response.choices[0].message.content
 
 
 # Try it once
@@ -215,8 +225,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from langfuse.decorators import observe
+from openai import OpenAI
 import chromadb
-import ollama
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 # Quick knowledge base
 chroma_client = chromadb.Client()
@@ -250,15 +265,15 @@ Next, the generation step:
 def generate_answer(question: str, context_docs: list) -> str:
     """Generate an answer using retrieved context."""
     context_str = "\n".join(context_docs)
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {"role": "system", "content": "Answer using ONLY the provided context. Cite document IDs."},
             {"role": "user", "content": f"Context:\n{context_str}\n\nQuestion: {question}"},
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
-    return response["message"]["content"]
+    return response.choices[0].message.content
 ```
 
 And a quick evaluation step:
@@ -338,9 +353,13 @@ load_dotenv()
 
 from langfuse import Langfuse
 from langfuse.decorators import observe
-import ollama
+from openai import OpenAI
 
 langfuse = Langfuse()
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 ```
 
 First, let's create a prompt in Langfuse:
@@ -377,12 +396,12 @@ def generate_from_managed_prompt(task_name: str, context: str) -> str:
     # Compile it -- this fills in the {{variables}}
     compiled = prompt.compile(task_name=task_name, context=context)
 
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[{"role": "user", "content": compiled}],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
-    return response["message"]["content"]
+    return response.choices[0].message.content
 
 
 result = generate_from_managed_prompt(
@@ -417,8 +436,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from langfuse.decorators import observe, langfuse_context
-import ollama
+from openai import OpenAI
 import re
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 ```
 
 First, a scoring function:
@@ -442,15 +466,15 @@ Now, here is the key part. Inside an `@observe()` function, you can use `langfus
 @observe()
 def generate_and_score(task_name: str) -> dict:
     """Generate a task description and score it."""
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {"role": "system", "content": "Write a manufacturing task description with numbered steps, safety notes, and spec references."},
             {"role": "user", "content": f"Task: {task_name}"},
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
-    answer = response["message"]["content"]
+    answer = response.choices[0].message.content
 
     # Score it
     scores = score_task_description(answer)
@@ -515,11 +539,15 @@ load_dotenv()
 
 from langfuse import Langfuse
 from langfuse.decorators import observe, langfuse_context
+from openai import OpenAI
 import chromadb
-import ollama
 import re
 
 langfuse = Langfuse()
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 # --- Knowledge Base Setup ---
 chroma_client = chromadb.Client()
@@ -559,15 +587,15 @@ def generate(question: str, context_docs: list) -> str:
         system_msg = "You are a manufacturing technical writer. Answer using only the provided context."
 
     context_str = "\n".join(context_docs)
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {"role": "system", "content": system_msg},
             {"role": "user", "content": f"Context:\n{context_str}\n\nQuestion: {question}"},
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
-    return response["message"]["content"]
+    return response.choices[0].message.content
 
 
 @observe()

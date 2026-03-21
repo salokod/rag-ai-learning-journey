@@ -10,8 +10,13 @@ touch 07-advanced-rag/advanced_rag_workshop.py
 
 ```python
 import chromadb
-import ollama
+from openai import OpenAI
 import json
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 client = chromadb.Client()
 collection = client.create_collection(name="adv_rag_demo")
@@ -162,7 +167,7 @@ Sometimes the user's query is vague or uses different words than the documents. 
 ```python
 def expand_query(original: str) -> list[str]:
     """Use LLM to generate multiple search queries from one question."""
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {
@@ -174,12 +179,12 @@ def expand_query(original: str) -> list[str]:
             },
             {"role": "user", "content": original},
         ],
-        format="json",
-        options={"temperature": 0.3},
+        response_format={"type": "json_object"},
+        temperature=0.3,
     )
 
     try:
-        result = json.loads(response["message"]["content"])
+        result = json.loads(response.choices[0].message.content)
         if isinstance(result, list):
             return result
         if isinstance(result, dict):
@@ -254,16 +259,16 @@ def rag_with_expansion(question: str) -> dict:
     top_docs = sorted(all_results.items(), key=lambda x: x[1]["dist"])[:3]
     context = "\n".join(f"- {doc_id}: {info['doc']}" for doc_id, info in top_docs)
 
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {"role": "user", "content": f"Based on:\n{context}\n\nAnswer: {question}"},
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
 
     return {
-        "answer": response["message"]["content"],
+        "answer": response.choices[0].message.content,
         "queries_used": queries,
         "sources": [doc_id for doc_id, _ in top_docs],
     }
@@ -315,7 +320,7 @@ def rerank(query: str, documents: list[str], top_k: int = 3) -> list[dict]:
     scored = []
 
     for doc in documents:
-        response = ollama.chat(
+        response = llm.chat.completions.create(
             model="gemma3:12b",
             messages=[
                 {
@@ -329,12 +334,12 @@ def rerank(query: str, documents: list[str], top_k: int = 3) -> list[dict]:
                     "content": f"QUERY: {query}\nDOCUMENT: {doc}",
                 },
             ],
-            format="json",
-            options={"temperature": 0.0},
+            response_format={"type": "json_object"},
+            temperature=0.0,
         )
 
         try:
-            result = json.loads(response["message"]["content"])
+            result = json.loads(response.choices[0].message.content)
             scored.append({
                 "doc": doc,
                 "score": result.get("score", 0),
@@ -419,7 +424,7 @@ def advanced_rag(question: str) -> dict:
 
     # Step 4: Generate
     context = "\n\n".join(f"- {r['doc']}" for r in reranked)
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {
@@ -431,11 +436,11 @@ def advanced_rag(question: str) -> dict:
                 "content": f"Documents:\n{context}\n\nQuestion: {question}",
             },
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
 
     return {
-        "answer": response["message"]["content"],
+        "answer": response.choices[0].message.content,
         "queries_expanded": queries,
         "docs_reranked": len(reranked),
     }
@@ -449,12 +454,12 @@ question = "LOTO procedure for the stamping press"
 print("=== Basic RAG ===")
 basic = collection.query(query_texts=[question], n_results=2)
 basic_context = "\n".join(basic["documents"][0])
-basic_response = ollama.chat(
+basic_response = llm.chat.completions.create(
     model="gemma3:12b",
     messages=[{"role": "user", "content": f"Based on:\n{basic_context}\n\nAnswer: {question}"}],
-    options={"temperature": 0.0},
+    temperature=0.0,
 )
-print(f"Answer: {basic_response['message']['content'][:300]}")
+print(f"Answer: {basic_response.choices[0].message.content[:300]}")
 
 print("\n=== Advanced RAG ===")
 advanced = advanced_rag(question)

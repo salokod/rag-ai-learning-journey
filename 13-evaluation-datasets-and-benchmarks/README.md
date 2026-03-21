@@ -173,8 +173,13 @@ The key word there is "review." Synthetic data is a starting point, not a finish
 # 13-evaluation-datasets-and-benchmarks/ex2_synthetic_dataset.py
 """Generate synthetic test cases using the LLM, then review them."""
 
-import ollama
+from openai import OpenAI
 import json
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 ```
 
 First, load the golden dataset as reference:
@@ -213,15 +218,15 @@ Let's run it:
 
 ```python
 print("Generating synthetic test cases...\n")
-response = ollama.chat(
+response = llm.chat.completions.create(
     model="gemma3:12b",
     messages=[{"role": "user", "content": generation_prompt}],
-    format="json",
-    options={"temperature": 0.7},
+    response_format={"type": "json_object"},
+    temperature=0.7,
 )
 
 try:
-    synthetic = json.loads(response["message"]["content"])
+    synthetic = json.loads(response.choices[0].message.content)
 
     # Handle if the LLM wraps it in a key
     if isinstance(synthetic, dict):
@@ -239,7 +244,7 @@ try:
 
 except json.JSONDecodeError as e:
     print(f"JSON parse error: {e}")
-    print(f"Raw output: {response['message']['content'][:200]}")
+    print(f"Raw output: {response.choices[0].message.content[:200]}")
     synthetic = []
 ```
 
@@ -267,15 +272,15 @@ Now let's generate expected outputs for the synthetic tasks too. This gives us s
 ```python
 print("\n--- Generating expected outputs for synthetic tasks ---\n")
 for i, task in enumerate(synthetic[:3]):  # Do 3 to save time
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {"role": "system", "content": "You are a senior manufacturing technical writer. Write 3-5 numbered steps with safety notes and spec references."},
             {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task.get('context', 'N/A')}"},
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
-    task["expected_output"] = response["message"]["content"]
+    task["expected_output"] = response.choices[0].message.content
     print(f"Generated output for: {task['task_name']}")
     print(f"  Preview: {task['expected_output'][:80]}...")
     print()
@@ -301,10 +306,15 @@ This is the before/after comparison that proves your changes are improvements.
 # 13-evaluation-datasets-and-benchmarks/ex3_regression_benchmark.py
 """Run a regression benchmark -- get a score, change something, get a new score."""
 
-import ollama
+from openai import OpenAI
 import json
 import re
 from datetime import datetime
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 ```
 
 First, let's build the evaluation function. This checks the things we care about:
@@ -364,15 +374,15 @@ def run_benchmark(golden_path: str, system_prompt: str, model: str = "gemma3:12b
 
     results = []
     for task in golden:
-        response = ollama.chat(
+        response = llm.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task['context']}"},
             ],
-            options={"temperature": 0.0},
+            temperature=0.0,
         )
-        generated = response["message"]["content"]
+        generated = response.choices[0].message.content
         scores = evaluate_output(generated, task)
         scores["task_id"] = task["id"]
         scores["task_name"] = task["task_name"]
@@ -480,11 +490,16 @@ A benchmark you do not run is useless. Let's make it a one-liner.
 # 13-evaluation-datasets-and-benchmarks/ex4_benchmark_runner.py
 """A reusable benchmark runner -- one command to get your score."""
 
-import ollama
+from openai import OpenAI
 import json
 import re
 import sys
 from datetime import datetime
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 
 def evaluate_output(generated: str, task: dict) -> dict:
@@ -529,15 +544,15 @@ def run(prompt_file: str = None):
     total_score = 0
     passing = 0
     for task in golden:
-        response = ollama.chat(
+        response = llm.chat.completions.create(
             model="gemma3:12b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task['context']}"},
             ],
-            options={"temperature": 0.0},
+            temperature=0.0,
         )
-        scores = evaluate_output(response["message"]["content"], task)
+        scores = evaluate_output(response.choices[0].message.content, task)
         total_score += scores["overall"]
         if scores["overall"] >= 0.7:
             passing += 1

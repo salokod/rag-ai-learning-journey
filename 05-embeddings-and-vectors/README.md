@@ -27,11 +27,16 @@ python3
 ```
 
 ```python
-import ollama
+from openai import OpenAI
 
-response = ollama.embed(model="nomic-embed-text", input="Hello world")
-print(type(response["embeddings"][0]))
-print(len(response["embeddings"][0]))
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
+
+response = llm.embeddings.create(model="nomic-embed-text", input="Hello world")
+print(type(response.data[0].embedding))
+print(len(response.data[0].embedding))
 ```
 
 You should see a list of 768 numbers. That's the "meaning" of "Hello world" -- encoded as 768 floating-point numbers. Not very human-readable, but incredibly useful for computers.
@@ -39,7 +44,7 @@ You should see a list of 768 numbers. That's the "meaning" of "Hello world" -- e
 Let's peek at the first few numbers:
 
 ```python
-print(response["embeddings"][0][:10])
+print(response.data[0].embedding[:10])
 ```
 
 Just a bunch of decimals. Not interesting to look at directly. But here's where it gets interesting.
@@ -52,7 +57,7 @@ Let's embed two sentences that mean the same thing but use different words:
 
 ```python
 def embed(text):
-    return ollama.embed(model="nomic-embed-text", input=text)["embeddings"][0]
+    return llm.embeddings.create(model="nomic-embed-text", input=text).data[0].embedding
 
 a = embed("Inspect the weld joints for cracks")
 b = embed("Check welding quality for defects")
@@ -552,9 +557,14 @@ Time to put it all together. Save this as `05-embeddings-and-vectors/knowledge_b
 """Build a searchable manufacturing knowledge base with ChromaDB."""
 
 import chromadb
-import ollama
+from openai import OpenAI
 import numpy as np
 import re
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 
 def cosine_sim(a, b):
@@ -667,8 +677,8 @@ pairs = [
 ]
 
 for text1, text2 in pairs:
-    e1 = ollama.embed(model="nomic-embed-text", input=text1)["embeddings"][0]
-    e2 = ollama.embed(model="nomic-embed-text", input=text2)["embeddings"][0]
+    e1 = llm.embeddings.create(model="nomic-embed-text", input=text1).data[0].embedding
+    e2 = llm.embeddings.create(model="nomic-embed-text", input=text2).data[0].embedding
     sim = cosine_sim(e1, e2)
     bar = "#" * int(sim * 30)
     print(f"  {sim:.3f} {bar}")

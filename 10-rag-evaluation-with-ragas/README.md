@@ -26,7 +26,7 @@ Let's try them one at a time.
 Ragas should already be installed from your requirements.txt. Let's verify:
 
 ```bash
-pip install ragas datasets langchain-ollama --quiet
+pip install ragas datasets langchain-openai --quiet
 ```
 
 Now create a file:
@@ -38,19 +38,28 @@ from ragas import SingleTurnSample
 from ragas.metrics import Faithfulness
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 ```
 
 No errors? Good. Let's set up the local models Ragas will use as its judge:
 
 ```python
 # Ragas needs an LLM (for judging) and embeddings (for similarity)
-# We use Ollama so everything stays local -- no API keys needed
+# We use Ollama's OpenAI-compatible endpoint so patterns transfer to production
 judge_llm = LangchainLLMWrapper(
-    ChatOllama(model="gemma3:12b", temperature=0.0)
+    ChatOpenAI(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="gemma3:12b",
+        temperature=0.0,
+    )
 )
 judge_embeddings = LangchainEmbeddingsWrapper(
-    OllamaEmbeddings(model="nomic-embed-text")
+    OpenAIEmbeddings(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="nomic-embed-text",
+    )
 )
 ```
 
@@ -226,13 +235,22 @@ from ragas import evaluate, EvaluationDataset, SingleTurnSample
 from ragas.metrics import Faithfulness, ResponseRelevancy
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 judge_llm = LangchainLLMWrapper(
-    ChatOllama(model="gemma3:12b", temperature=0.0)
+    ChatOpenAI(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="gemma3:12b",
+        temperature=0.0,
+    )
 )
 judge_embeddings = LangchainEmbeddingsWrapper(
-    OllamaEmbeddings(model="nomic-embed-text")
+    OpenAIEmbeddings(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="nomic-embed-text",
+    )
 )
 
 samples = [
@@ -333,13 +351,22 @@ from ragas import SingleTurnSample
 from ragas.metrics import Faithfulness, ResponseRelevancy
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 judge_llm = LangchainLLMWrapper(
-    ChatOllama(model="gemma3:12b", temperature=0.0)
+    ChatOpenAI(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="gemma3:12b",
+        temperature=0.0,
+    )
 )
 judge_embeddings = LangchainEmbeddingsWrapper(
-    OllamaEmbeddings(model="nomic-embed-text")
+    OpenAIEmbeddings(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="nomic-embed-text",
+    )
 )
 
 faithfulness_metric = Faithfulness(llm=judge_llm)
@@ -451,15 +478,20 @@ If you built the RAG pipeline in Module 06, let's evaluate it for real:
 ```python
 # 10-rag-evaluation-with-ragas/step12_real_pipeline.py
 import chromadb
-import ollama
+from openai import OpenAI
 import asyncio
 from ragas import SingleTurnSample, EvaluationDataset, evaluate
 from ragas.metrics import Faithfulness, ResponseRelevancy, LLMContextPrecisionWithoutReference
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 # --- Your RAG pipeline ---
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
+
 chroma_client = chromadb.Client()
 collection = chroma_client.create_collection(name="eval_test_kb")
 
@@ -483,7 +515,7 @@ def rag_query(question):
     context_docs = results["documents"][0]
 
     context_str = "\n".join(context_docs)
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {
@@ -495,10 +527,10 @@ def rag_query(question):
                 "content": f"Context:\n{context_str}\n\nQuestion: {question}",
             },
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
     return {
-        "answer": response["message"]["content"],
+        "answer": response.choices[0].message.content,
         "contexts": context_docs,
     }
 ```
@@ -530,10 +562,19 @@ for q in test_questions:
 
 # --- Evaluate ---
 judge_llm = LangchainLLMWrapper(
-    ChatOllama(model="gemma3:12b", temperature=0.0)
+    ChatOpenAI(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="gemma3:12b",
+        temperature=0.0,
+    )
 )
 judge_embeddings = LangchainEmbeddingsWrapper(
-    OllamaEmbeddings(model="nomic-embed-text")
+    OpenAIEmbeddings(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+        model="nomic-embed-text",
+    )
 )
 
 dataset = EvaluationDataset(samples=samples)

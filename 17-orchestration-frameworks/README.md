@@ -13,7 +13,7 @@ Over the last 16 modules, you built:
 - Agents with tool calling (Module 15)
 - Guardrails and safety checks (Module 16)
 
-All with plain Python, Ollama, and ChromaDB. No frameworks.
+All with plain Python, the OpenAI SDK pointed at Ollama, and ChromaDB. No frameworks.
 
 Now let's see what happens when you use one.
 
@@ -24,17 +24,17 @@ Now let's see what happens when you use one.
 You'll need both LangChain and LlamaIndex. Let's install them:
 
 ```bash
-pip install langchain-ollama langchain-chroma langchain-core
+pip install langchain-openai langchain-chroma langchain-core
 ```
 
 ```bash
-pip install llama-index-core llama-index-llms-ollama llama-index-embeddings-ollama
+pip install llama-index-core llama-index-llms-openai llama-index-embeddings-openai
 ```
 
 Let's verify they installed. Quick check:
 
 ```python
-python3 -c "from langchain_ollama import ChatOllama; print('LangChain ready')"
+python3 -c "from langchain_openai import ChatOpenAI; print('LangChain ready')"
 ```
 
 ```python
@@ -53,12 +53,17 @@ First, let's remind ourselves what your hand-built RAG looks like. This is rough
 # 17-orchestration-frameworks/ex1_plain_rag.py
 """Your plain-code RAG pipeline -- the baseline to compare against."""
 
-import ollama
+from openai import OpenAI
 import chromadb
 
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
+
 # Set up ChromaDB
-client = chromadb.Client()
-collection = client.create_collection("plain_mfg_docs")
+chroma_client = chromadb.Client()
+collection = chroma_client.create_collection("plain_mfg_docs")
 
 # Your manufacturing documents
 docs = [
@@ -71,12 +76,12 @@ docs = [
 
 # Embed and store
 for doc in docs:
-    embedding = ollama.embed(model="nomic-embed-text", input=doc["text"])["embeddings"][0]
+    embedding = llm.embeddings.create(model="nomic-embed-text", input=doc["text"]).data[0].embedding
     collection.add(ids=[doc["id"]], documents=[doc["text"]], embeddings=[embedding])
 
 # Query
 question = "What is the torque spec for M10 bolts on Frame #4200?"
-q_embedding = ollama.embed(model="nomic-embed-text", input=question)["embeddings"][0]
+q_embedding = llm.embeddings.create(model="nomic-embed-text", input=question).data[0].embedding
 results = collection.query(query_embeddings=[q_embedding], n_results=2)
 
 # Build prompt with context
@@ -90,15 +95,15 @@ Question: {question}
 
 Answer:"""
 
-response = ollama.chat(
+response = llm.chat.completions.create(
     model="llama3.3:70b",
     messages=[{"role": "user", "content": prompt}],
-    options={"temperature": 0.0},
+    temperature=0.0,
 )
 
 print("=== Plain Code RAG ===")
 print(f"Q: {question}")
-print(f"A: {response['message']['content']}")
+print(f"A: {response.choices[0].message.content}")
 ```
 
 Run it:
@@ -117,7 +122,7 @@ Count the lines. That's roughly 30 lines of working code (not counting the doc d
 # 17-orchestration-frameworks/ex2_langchain_rag.py
 """The same RAG pipeline, built with LangChain."""
 
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
@@ -129,8 +134,17 @@ That's a lot of imports. But watch what happens next:
 
 ```python
 # Set up model and embeddings -- one line each
-llm = ChatOllama(model="llama3.3:70b", temperature=0.0)
-embeddings = OllamaEmbeddings(model="nomic-embed-text")
+llm = ChatOpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+    model="llama3.3:70b",
+    temperature=0.0,
+)
+embeddings = OpenAIEmbeddings(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+    model="nomic-embed-text",
+)
 ```
 
 Create the vector store and load documents:
@@ -202,12 +216,12 @@ Want to switch from Ollama to OpenAI? In your plain code, you'd rewrite the embe
 In LangChain, you change ONE line:
 
 ```python
-# Instead of:
-# llm = ChatOllama(model="llama3.3:70b", temperature=0.0)
+# Instead of (local Ollama):
+# llm = ChatOpenAI(base_url="http://localhost:11434/v1", api_key="ollama", model="llama3.3:70b")
 
-# You'd write:
+# Switch to OpenAI cloud -- just change the constructor:
 # from langchain_openai import ChatOpenAI
-# llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
+# llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)  # uses OPENAI_API_KEY env var
 ```
 
 Everything else stays the same. The chain, the prompt, the retriever -- none of it changes.
@@ -233,12 +247,21 @@ Now let's try LlamaIndex. It takes a different approach -- laser focused on docu
 """The same RAG pipeline, built with LlamaIndex."""
 
 from llama_index.core import VectorStoreIndex, Document, Settings
-from llama_index.llms.ollama import Ollama
-from llama_index.embeddings.ollama import OllamaEmbedding
+from llama_index.llms.openai import OpenAI as LlamaOpenAI
+from llama_index.embeddings.openai import OpenAIEmbedding
 
 # Configure globally -- LlamaIndex uses a Settings object
-Settings.llm = Ollama(model="llama3.3:70b", temperature=0.0, request_timeout=120)
-Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text")
+Settings.llm = LlamaOpenAI(
+    model="llama3.3:70b",
+    temperature=0.0,
+    api_base="http://localhost:11434/v1",
+    api_key="ollama",
+)
+Settings.embed_model = OpenAIEmbedding(
+    model_name="nomic-embed-text",
+    api_base="http://localhost:11434/v1",
+    api_key="ollama",
+)
 ```
 
 Now create documents and build the index:
@@ -293,15 +316,16 @@ SETTING UP MODEL + EMBEDDINGS
 ==============================
 
 Plain code:
-    # No setup -- just call ollama.chat() and ollama.embed() directly
+    llm = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+    # call llm.chat.completions.create() and llm.embeddings.create() directly
 
 LangChain:
-    llm = ChatOllama(model="llama3.3:70b")
-    embeddings = OllamaEmbeddings(model="nomic-embed-text")
+    llm = ChatOpenAI(base_url="http://localhost:11434/v1", api_key="ollama", model="llama3.3:70b")
+    embeddings = OpenAIEmbeddings(base_url="http://localhost:11434/v1", api_key="ollama", model="nomic-embed-text")
 
 LlamaIndex:
-    Settings.llm = Ollama(model="llama3.3:70b")
-    Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text")
+    Settings.llm = LlamaOpenAI(model="llama3.3:70b", api_base="http://localhost:11434/v1", api_key="ollama")
+    Settings.embed_model = OpenAIEmbedding(model_name="nomic-embed-text", api_base="http://localhost:11434/v1", api_key="ollama")
 
 
 EMBEDDING + STORING DOCUMENTS
@@ -309,7 +333,7 @@ EMBEDDING + STORING DOCUMENTS
 
 Plain code:
     for doc in docs:
-        emb = ollama.embed(model="nomic-embed-text", input=doc["text"])["embeddings"][0]
+        emb = llm.embeddings.create(model="nomic-embed-text", input=doc["text"]).data[0].embedding
         collection.add(ids=[doc["id"]], documents=[doc["text"]], embeddings=[emb])
 
 LangChain:
@@ -325,11 +349,11 @@ QUERYING
 ==============================
 
 Plain code:
-    q_emb = ollama.embed(model="nomic-embed-text", input=question)["embeddings"][0]
+    q_emb = llm.embeddings.create(model="nomic-embed-text", input=question).data[0].embedding
     results = collection.query(query_embeddings=[q_emb], n_results=2)
     context = "\\n".join(results["documents"][0])
-    response = ollama.chat(model="llama3.3:70b", messages=[...])
-    answer = response["message"]["content"]
+    response = llm.chat.completions.create(model="llama3.3:70b", messages=[...])
+    answer = response.choices[0].message.content
 
 LangChain:
     answer = rag_chain.invoke(question)
@@ -338,19 +362,21 @@ LlamaIndex:
     response = query_engine.query(question)
 
 
-SWAPPING THE MODEL
+SWAPPING TO CLOUD (e.g., OpenAI GPT-4)
 ==============================
 
 Plain code:
-    # Change every ollama.chat() call. Update response parsing.
-    # If switching providers, rewrite API calls entirely.
+    # Remove base_url and api_key="ollama", set OPENAI_API_KEY env var
+    llm = OpenAI()  # uses OPENAI_API_KEY from environment
 
 LangChain:
-    # Change: llm = ChatOllama(...) -> llm = ChatOpenAI(...)
+    # Change: llm = ChatOpenAI(base_url="...", api_key="ollama", model="llama3.3:70b")
+    #      to: llm = ChatOpenAI(model="gpt-4o-mini")  # uses OPENAI_API_KEY
     # Everything else stays the same.
 
 LlamaIndex:
-    # Change: Settings.llm = Ollama(...) -> Settings.llm = OpenAI(...)
+    # Change: Settings.llm = LlamaOpenAI(api_base="...", api_key="ollama", model="llama3.3:70b")
+    #      to: Settings.llm = LlamaOpenAI(model="gpt-4o-mini")  # uses OPENAI_API_KEY
     # Everything else stays the same.
 
 

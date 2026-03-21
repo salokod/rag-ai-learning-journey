@@ -11,13 +11,18 @@ python3
 Now ask Ollama about YOUR company's data:
 
 ```python
-import ollama
+from openai import OpenAI
 
-response = ollama.chat(
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
+
+response = client.chat.completions.create(
     model="gemma3:12b",
     messages=[{"role": "user", "content": "What's the torque spec for Assembly #4200?"}],
 )
-print(response["message"]["content"])
+print(response.choices[0].message.content)
 ```
 
 What did you get? Probably one of two things:
@@ -44,7 +49,12 @@ Start with your imports and some sample manufacturing docs:
 
 ```python
 import chromadb
-import ollama
+from openai import OpenAI
+
+llm = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
+)
 
 manufacturing_docs = [
     {
@@ -219,7 +229,7 @@ Run it and look at what gets printed. Notice how the prompt now contains the act
 Now send that augmented prompt to the LLM:
 
 ```python
-response = ollama.chat(
+response = llm.chat.completions.create(
     model="gemma3:12b",
     messages=[
         {
@@ -230,10 +240,10 @@ response = ollama.chat(
         },
         {"role": "user", "content": augmented_prompt},
     ],
-    options={"temperature": 0.0},
+    temperature=0.0,
 )
 
-print(response["message"]["content"])
+print(response.choices[0].message.content)
 ```
 
 What did you get?
@@ -253,12 +263,12 @@ question = "What shielding gas should I use for MIG welding carbon steel?"
 
 # WITHOUT RAG
 print("=== WITHOUT RAG ===")
-no_rag = ollama.chat(
+no_rag = llm.chat.completions.create(
     model="gemma3:12b",
     messages=[{"role": "user", "content": question}],
-    options={"temperature": 0.0},
+    temperature=0.0,
 )
-print(no_rag["message"]["content"][:300])
+print(no_rag.choices[0].message.content[:300])
 
 # WITH RAG
 print("\n=== WITH RAG ===")
@@ -268,7 +278,7 @@ context = "\n\n".join(
     for doc_id, doc in zip(results["ids"][0], results["documents"][0])
 )
 
-with_rag = ollama.chat(
+with_rag = llm.chat.completions.create(
     model="gemma3:12b",
     messages=[
         {
@@ -280,9 +290,9 @@ with_rag = ollama.chat(
             "content": f"Documents:\n{context}\n\nQuestion: {question}",
         },
     ],
-    options={"temperature": 0.0},
+    temperature=0.0,
 )
-print(with_rag["message"]["content"][:300])
+print(with_rag.choices[0].message.content[:300])
 ```
 
 Run it. Notice the difference:
@@ -303,7 +313,7 @@ question = "What is the company's vacation policy?"
 results = collection.query(query_texts=[question], n_results=2)
 context = "\n\n".join(results["documents"][0])
 
-response = ollama.chat(
+response = llm.chat.completions.create(
     model="gemma3:12b",
     messages=[
         {
@@ -317,9 +327,9 @@ response = ollama.chat(
             "content": f"Documents:\n{context}\n\nQuestion: {question}",
         },
     ],
-    options={"temperature": 0.0},
+    temperature=0.0,
 )
-print(response["message"]["content"])
+print(response.choices[0].message.content)
 ```
 
 It should say something like "I don't have that information in my documents."
@@ -358,7 +368,7 @@ CONTEXT:
 QUESTION: {question}"""
 
     # GENERATE
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {
@@ -368,12 +378,12 @@ QUESTION: {question}"""
             },
             {"role": "user", "content": augmented_prompt},
         ],
-        options={"temperature": 0.0},
+        temperature=0.0,
     )
 
     return {
         "question": question,
-        "answer": response["message"]["content"],
+        "answer": response.choices[0].message.content,
         "sources": retrieved_ids,
         "distances": distances,
     }
@@ -504,7 +514,7 @@ def generate_task(task_name: str) -> str:
         for doc_id, doc in zip(results["ids"][0], results["documents"][0])
     )
 
-    response = ollama.chat(
+    response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
             {
@@ -522,10 +532,10 @@ def generate_task(task_name: str) -> str:
                 f"Company reference documents:\n{context}",
             },
         ],
-        options={"temperature": 0.1},
+        temperature=0.1,
     )
 
-    return response["message"]["content"]
+    return response.choices[0].message.content
 ```
 
 Try it:
