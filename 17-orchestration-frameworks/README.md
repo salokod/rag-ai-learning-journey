@@ -63,15 +63,15 @@ llm = OpenAI(
 
 # Set up ChromaDB
 chroma_client = chromadb.Client()
-collection = chroma_client.create_collection("plain_mfg_docs")
+collection = chroma_client.create_collection("plain_scouting_docs")
 
-# Your manufacturing documents
+# Your football scouting documents
 docs = [
-    {"id": "mt302", "text": "Torque Spec MT-302: Frame #4200. M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. Star pattern. Form QC-110."},
-    {"id": "wps201", "text": "WPS-201: GMAW carbon steel. ER70S-6 wire. 75/25 Ar/CO2 at 25-30 CFH. Interpass max 400F."},
-    {"id": "qc107", "text": "Form QC-107: Visual inspection checklist. Check surface finish, weld quality, hardware. All items must pass."},
-    {"id": "safety", "text": "LOTO SOP-SAFE-001: Notify operators, normal shutdown, isolate energy, lock/tag, release stored energy, verify zero."},
-    {"id": "ppe", "text": "PPE: Safety glasses always. Welding: auto-dark helmet shade 10-13, leather gloves, FR clothing."},
+    {"id": "qb101", "text": "QB-101: Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Arm strength: 62 mph. Weakness: locks onto first read under pressure."},
+    {"id": "rb201", "text": "RB-201: Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection."},
+    {"id": "wr301", "text": "WR-301: Crisp route runner with elite separation. Full route tree, slot and outside. 4.42 speed, 38-inch vertical. 2.1% drop rate. Weakness: press coverage at the line."},
+    {"id": "ol401", "text": "OL-401: Excellent pass protection anchor. Quick lateral movement. 34-inch arms. Run blocking: 82.5/100. 2 sacks allowed in 580 snaps. Weakness: combo blocks."},
+    {"id": "def501", "text": "DEF-501: Cover-3 base with single-high safety. Press corners. Pattern-match zone on 3rd down. Aggressive nickel blitz. Weakness: crossing routes against zone."},
 ]
 
 # Embed and store
@@ -80,7 +80,7 @@ for doc in docs:
     collection.add(ids=[doc["id"]], documents=[doc["text"]], embeddings=[embedding])
 
 # Query
-question = "What is the torque spec for M10 bolts on Frame #4200?"
+question = "What's the 40 time and yards after contact for the RB prospect?"
 q_embedding = llm.embeddings.create(model="nomic-embed-text", input=question).data[0].embedding
 results = collection.query(query_embeddings=[q_embedding], n_results=2)
 
@@ -151,19 +151,19 @@ Create the vector store and load documents:
 
 ```python
 docs = [
-    Document(page_content="Torque Spec MT-302: Frame #4200. M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. Star pattern. Form QC-110.",
-             metadata={"source": "MT-302"}),
-    Document(page_content="WPS-201: GMAW carbon steel. ER70S-6 wire. 75/25 Ar/CO2 at 25-30 CFH. Interpass max 400F.",
-             metadata={"source": "WPS-201"}),
-    Document(page_content="Form QC-107: Visual inspection checklist. Check surface finish, weld quality, hardware. All items must pass.",
-             metadata={"source": "QC-107"}),
-    Document(page_content="LOTO SOP-SAFE-001: Notify operators, normal shutdown, isolate energy, lock/tag, release stored energy, verify zero.",
-             metadata={"source": "SOP-SAFE-001"}),
-    Document(page_content="PPE: Safety glasses always. Welding: auto-dark helmet shade 10-13, leather gloves, FR clothing.",
-             metadata={"source": "PPE-001"}),
+    Document(page_content="QB-101: Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Arm strength: 62 mph. Weakness: locks onto first read under pressure.",
+             metadata={"source": "QB-101"}),
+    Document(page_content="RB-201: Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection.",
+             metadata={"source": "RB-201"}),
+    Document(page_content="WR-301: Crisp route runner with elite separation. Full route tree, slot and outside. 4.42 speed, 38-inch vertical. 2.1% drop rate. Weakness: press coverage at the line.",
+             metadata={"source": "WR-301"}),
+    Document(page_content="OL-401: Excellent pass protection anchor. Quick lateral movement. 34-inch arms. Run blocking: 82.5/100. 2 sacks allowed in 580 snaps. Weakness: combo blocks.",
+             metadata={"source": "OL-401"}),
+    Document(page_content="DEF-501: Cover-3 base with single-high safety. Press corners. Pattern-match zone on 3rd down. Aggressive nickel blitz. Weakness: crossing routes against zone.",
+             metadata={"source": "DEF-501"}),
 ]
 
-vectorstore = Chroma.from_documents(docs, embeddings, collection_name="lc_mfg_docs")
+vectorstore = Chroma.from_documents(docs, embeddings, collection_name="lc_scouting_docs")
 retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
 ```
 
@@ -193,7 +193,7 @@ rag_chain = (
 That chain reads like a sentence: retrieve docs, format them, fill the prompt, send to LLM, parse the output. Now use it:
 
 ```python
-question = "What is the torque spec for M10 bolts on Frame #4200?"
+question = "What's the 40 time and yards after contact for the RB prospect?"
 print("=== LangChain RAG ===")
 print(f"Q: {question}")
 print(f"A: {rag_chain.invoke(question)}")
@@ -231,7 +231,7 @@ Want to swap ChromaDB for Pinecone? Same idea:
 ```python
 # Instead of Chroma, use Pinecone:
 # from langchain_pinecone import PineconeVectorStore
-# vectorstore = PineconeVectorStore.from_documents(docs, embeddings, index_name="mfg")
+# vectorstore = PineconeVectorStore.from_documents(docs, embeddings, index_name="scouting")
 ```
 
 That's the value proposition of frameworks: swappable components. For a team project where you might switch models or vector stores, that's huge.
@@ -268,14 +268,14 @@ Now create documents and build the index:
 
 ```python
 documents = [
-    Document(text="Torque Spec MT-302: Frame #4200. M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. Star pattern.",
-             metadata={"source": "MT-302"}),
-    Document(text="WPS-201: GMAW carbon steel. ER70S-6 wire. 75/25 Ar/CO2 at 25-30 CFH.",
-             metadata={"source": "WPS-201"}),
-    Document(text="Form QC-107: Visual inspection checklist. All items must pass. Fail = red HOLD tag.",
-             metadata={"source": "QC-107"}),
-    Document(text="LOTO SOP-SAFE-001: Notify, shutdown, isolate, lock/tag, release energy, verify zero.",
-             metadata={"source": "SOP-SAFE-001"}),
+    Document(text="QB-101: Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Arm strength: 62 mph. Weakness: locks onto first read under pressure.",
+             metadata={"source": "QB-101"}),
+    Document(text="RB-201: Explosive runner with 4.38 40-yard dash. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection.",
+             metadata={"source": "RB-201"}),
+    Document(text="WR-301: Crisp route runner with elite separation. Full route tree. 4.42 speed, 38-inch vertical. 2.1% drop rate. Weakness: press coverage.",
+             metadata={"source": "WR-301"}),
+    Document(text="DEF-501: Cover-3 base with single-high safety. Press corners. Pattern-match zone on 3rd down. Aggressive nickel blitz. Weakness: crossing routes against zone.",
+             metadata={"source": "DEF-501"}),
 ]
 
 index = VectorStoreIndex.from_documents(documents)
@@ -285,7 +285,7 @@ query_engine = index.as_query_engine(similarity_top_k=2)
 That's it. Two lines to go from documents to a working query engine. LlamaIndex handled the chunking, embedding, and indexing. Now query it:
 
 ```python
-question = "What is the torque spec for M10 bolts?"
+question = "What's the 40 time for the RB prospect?"
 print("=== LlamaIndex RAG ===")
 print(f"Q: {question}")
 response = query_engine.query(question)
@@ -421,14 +421,14 @@ Let's be real about when each approach makes sense.
 - You need streaming, batching, or async out of the box
 
 **Use LlamaIndex when:**
-- Your project is document-heavy -- lots of PDFs, manuals, specs to index
+- Your project is document-heavy -- lots of PDFs, game film notes, scouting reports to index
 - You want automatic chunking strategies (sentence, paragraph, semantic)
-- Citation tracking is important (which document answered which question)
+- Citation tracking is important (which report answered which question)
 - You're building a pure RAG system without complex agent logic
 
-**For your manufacturing capstone:**
+**For your football scouting capstone:**
 - Your golden dataset + evaluation pipeline = plain code is fine
-- If you add dozens of manufacturing documents = LlamaIndex shines
+- If you add dozens of scouting reports and film notes = LlamaIndex shines
 - If you build a multi-step agent with tools + guardrails + RAG = LangChain helps
 
 Here's the thing most framework tutorials won't tell you: **your plain-code pipeline from Modules 05-08 is perfectly fine for production.** Frameworks help when complexity grows. Don't adopt one just because it's popular.
@@ -494,19 +494,19 @@ def choose_approach(
 scenarios = [
     {"num_developers": 1, "may_switch_models": False, "num_documents": 10,
      "has_agent_logic": False, "pipeline_steps": 2,
-     "label": "Solo dev, simple RAG, 10 docs"},
+     "label": "Solo dev, simple RAG, 10 scouting reports"},
 
     {"num_developers": 3, "may_switch_models": True, "num_documents": 200,
      "has_agent_logic": False, "pipeline_steps": 3,
-     "label": "Team of 3, 200 manufacturing docs, might switch to cloud LLM"},
+     "label": "Team of 3, 200 scouting reports, might switch to cloud LLM"},
 
     {"num_developers": 2, "may_switch_models": True, "num_documents": 50,
      "has_agent_logic": True, "pipeline_steps": 5,
-     "label": "2 devs, agent with tools, 50 docs, complex pipeline"},
+     "label": "2 devs, draft analyst agent with tools, 50 reports, complex pipeline"},
 
     {"num_developers": 1, "may_switch_models": False, "num_documents": 100,
      "has_agent_logic": True, "pipeline_steps": 4,
-     "label": "Solo dev, agent + lots of docs"},
+     "label": "Solo dev, agent + lots of scouting reports"},
 ]
 
 print("=== Framework Decision Tool ===\n")
@@ -524,7 +524,7 @@ python3 17-orchestration-frameworks/ex5_decision.py
 
 The recommendations match your intuition:
 - Simple solo project? Plain code.
-- Lots of docs? LlamaIndex.
+- Lots of scouting reports? LlamaIndex.
 - Complex agent pipeline with a team? LangChain.
 - Both? Combine them.
 
@@ -545,7 +545,7 @@ The most important thing: you built everything from scratch first. Now you UNDER
 ## Takeaways
 
 1. **LangChain** = general-purpose orchestration, great for agents, chains, and swappable components
-2. **LlamaIndex** = document-focused, great for RAG-heavy applications with lots of files to index
+2. **LlamaIndex** = document-focused, great for RAG-heavy applications with lots of scouting reports to index
 3. **Plain code is often the right choice** -- add a framework when complexity demands it, not before
 4. **Frameworks help teams more than solo devs** -- shared abstractions reduce onboarding time
 5. **Evaluation matters more than framework choice** -- a well-tested plain-code pipeline beats an untested LangChain one every time

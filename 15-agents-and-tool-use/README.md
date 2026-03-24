@@ -7,7 +7,7 @@ Make the LLM stop guessing and start LOOKING THINGS UP. Build tools the model ca
 
 ## The Problem: LLMs Guess When They Should Look It Up
 
-Think about what happens when you ask an LLM for a torque spec. It makes up something plausible. That's terrifying in manufacturing.
+Think about what happens when you ask an LLM for a player's combine numbers. It makes up something plausible. That's terrifying in football scouting.
 
 What if the model could say: "Hang on, let me look that up for you"?
 
@@ -23,27 +23,27 @@ Before we give the LLM any tools, let's build the data it will look up. Open a P
 python3
 ```
 
-Now paste this -- it's just a dictionary pretending to be a spec database:
+Now paste this -- it's just a dictionary pretending to be a scouting database:
 
 ```python
-SPECS = {
-    "MT-302": "Frame #4200: M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. Star pattern.",
-    "WPS-201": "GMAW carbon steel. ER70S-6 wire. 75/25 Ar/CO2 at 25-30 CFH.",
+PLAYERS = {
+    "QB-101": "Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Excels on intermediate routes (15-25 yards). Reads defenses pre-snap. Arm strength: 62 mph. Weakness: locks onto first read under pressure.",
+    "RB-201": "Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection and blitz pickup.",
 }
 ```
 
 Try looking something up:
 
 ```python
-SPECS["MT-302"]
+PLAYERS["QB-101"]
 ```
 
-You get the exact spec. No hallucination, no guessing. That's what we want the LLM to do.
+You get the exact scouting report. No hallucination, no guessing. That's what we want the LLM to do.
 
-Now try a spec that doesn't exist:
+Now try a player that doesn't exist:
 
 ```python
-SPECS.get("FAKE-999", "Not found in database.")
+PLAYERS.get("FAKE-999", "Not found in database.")
 ```
 
 Notice how `.get()` returns a safe fallback instead of crashing. We'll need that.
@@ -55,24 +55,24 @@ Notice how `.get()` returns a safe fallback instead of crashing. We'll need that
 The LLM can't read dictionaries directly. It calls functions. Let's write one:
 
 ```python
-def lookup_spec(spec_id: str) -> str:
-    """Look up a manufacturing specification by ID."""
-    return SPECS.get(spec_id.upper(), f"Spec '{spec_id}' not found.")
+def lookup_player_stats(player_id: str) -> str:
+    """Look up a football player's scouting report by ID."""
+    return PLAYERS.get(player_id.upper(), f"Player '{player_id}' not found.")
 ```
 
 Test it:
 
 ```python
-lookup_spec("mt-302")
+lookup_player_stats("qb-101")
 ```
 
 Works even with lowercase -- notice the `.upper()` handles that. Now try:
 
 ```python
-lookup_spec("FAKE-123")
+lookup_player_stats("FAKE-123")
 ```
 
-Clean error message. Good. The LLM will know the spec doesn't exist instead of making one up.
+Clean error message. Good. The LLM will know the player doesn't exist instead of making one up.
 
 ---
 
@@ -82,7 +82,7 @@ Here's where it gets interesting. You describe your function to the LLM using a 
 
 ```python
 # 15-agents-and-tool-use/ex1_first_tool.py
-"""Your first tool call -- the LLM decides to look up a spec."""
+"""Your first tool call -- the LLM decides to look up a player."""
 
 from openai import OpenAI
 import json
@@ -92,13 +92,13 @@ client = OpenAI(
     api_key="ollama",
 )
 
-SPECS = {
-    "MT-302": "Frame #4200: M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. Star pattern.",
-    "WPS-201": "GMAW carbon steel. ER70S-6 wire. 75/25 Ar/CO2 at 25-30 CFH.",
+PLAYERS = {
+    "QB-101": "Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Excels on intermediate routes (15-25 yards). Reads defenses pre-snap. Arm strength: 62 mph. Weakness: locks onto first read under pressure.",
+    "RB-201": "Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection and blitz pickup.",
 }
 
-def lookup_spec(spec_id: str) -> str:
-    return SPECS.get(spec_id.upper(), f"Spec '{spec_id}' not found.")
+def lookup_player_stats(player_id: str) -> str:
+    return PLAYERS.get(player_id.upper(), f"Player '{player_id}' not found.")
 ```
 
 Now add the tool schema -- this tells the LLM what the function does and what arguments it takes:
@@ -108,24 +108,24 @@ tools = [
     {
         "type": "function",
         "function": {
-            "name": "lookup_spec",
-            "description": "Look up a manufacturing specification by its ID (e.g., MT-302, WPS-201)",
+            "name": "lookup_player_stats",
+            "description": "Look up a football player's scouting report by their ID (e.g., QB-101, RB-201)",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "spec_id": {
+                    "player_id": {
                         "type": "string",
-                        "description": "The specification ID to look up",
+                        "description": "The player ID to look up",
                     }
                 },
-                "required": ["spec_id"],
+                "required": ["player_id"],
             },
         },
     },
 ]
 ```
 
-That looks like a lot, but read it carefully. It's just saying: "There's a function called `lookup_spec` that takes one string called `spec_id`." The description is critical -- that's how the model knows WHEN to use it.
+That looks like a lot, but read it carefully. It's just saying: "There's a function called `lookup_player_stats` that takes one string called `player_id`." The description is critical -- that's how the model knows WHEN to use it.
 
 ---
 
@@ -135,8 +135,8 @@ Add this to the same file:
 
 ```python
 messages = [
-    {"role": "system", "content": "You write manufacturing task descriptions. Use tools to look up specs -- never guess."},
-    {"role": "user", "content": "What's the torque spec for M10 bolts on Frame #4200?"},
+    {"role": "system", "content": "You write football scouting reports. Use tools to look up player data -- never guess."},
+    {"role": "user", "content": "What's the arm strength for the QB prospect QB-101?"},
 ]
 
 response = client.chat.completions.create(
@@ -154,7 +154,7 @@ Run it:
 python3 15-agents-and-tool-use/ex1_first_tool.py
 ```
 
-Look at the response. The model didn't answer your question. Instead, it returned a `tool_calls` field saying "I want to call `lookup_spec` with `spec_id='MT-302'`."
+Look at the response. The model didn't answer your question. Instead, it returned a `tool_calls` field saying "I want to call `lookup_player_stats` with `player_id='QB-101'`."
 
 The model CHOSE to call your function. It decided it needed more information before answering. That's the whole idea.
 
@@ -174,7 +174,7 @@ if msg.tool_calls:
     print(f"Model wants to call: {func_name}({func_args})")
 
     # Execute it
-    result = lookup_spec(func_args["spec_id"])
+    result = lookup_player_stats(func_args["player_id"])
     print(f"Tool returned: {result}")
 
     # Feed the result back to the model
@@ -188,10 +188,10 @@ if msg.tool_calls:
 
 Run it again. This time you should see three things:
 1. The model's tool call request
-2. The actual spec data from your "database"
-3. A final answer that includes the REAL torque values
+2. The actual scouting data from your "database"
+3. A final answer that includes the REAL arm strength numbers
 
-The answer now includes `M10=45-55Nm` -- the actual spec from your database. No hallucination. The model looked it up.
+The answer now includes `62 mph` -- the actual stat from your database. No hallucination. The model looked it up.
 
 ---
 
@@ -212,33 +212,32 @@ client = OpenAI(
 )
 
 # Three "databases"
-SPECS = {
-    "MT-302": "Frame #4200: M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. Star pattern. Calibrated wrench required.",
-    "WPS-201": "GMAW carbon steel. ER70S-6 wire. 75/25 Ar/CO2 at 25-30 CFH. Interpass max 400F.",
-    "AWS-D1.1": "Structural welding code. Visual inspection per Section 6. UT for critical joints.",
+PLAYERS = {
+    "QB-101": "Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Arm strength: 62 mph. Weakness: locks onto first read under pressure.",
+    "RB-201": "Explosive runner with 4.38 40-yard dash. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection and blitz pickup.",
+    "WR-301": "Crisp route runner with elite separation. Full route tree, slot and outside. 4.42 speed, 38-inch vertical. 2.1% drop rate. Weakness: press coverage at the line.",
 }
 
-FORMS = {
-    "visual": "Form QC-107: Visual inspection checklist. All items must pass.",
-    "dimensional": "Form QC-110: Dimensional inspection. Record actual vs nominal.",
-    "weld": "Form QC-115: Weld inspection. References WPS, joint type, NDE results.",
+COMBINE = {
+    "QB-101": "40-yard dash: 4.71s. Vertical: 32in. Broad jump: 9'4\". Bench press: 18 reps. Hand size: 10.25in.",
+    "RB-201": "40-yard dash: 4.38s. Vertical: 39in. Broad jump: 10'8\". Bench press: 22 reps. 3-cone: 6.89s.",
+    "WR-301": "40-yard dash: 4.42s. Vertical: 38in. Broad jump: 10'4\". Bench press: 14 reps. 3-cone: 6.92s.",
 }
 
-PPE = {
-    "welding": "Auto-darkening helmet (shade 10-13), leather gloves, FR clothing, steel-toes.",
-    "grinding": "Face shield, safety glasses, leather gloves, hearing protection, steel-toes.",
-    "machining": "Safety glasses, hearing protection if >85dB, steel-toes. No loose clothing.",
-    "general": "Safety glasses and steel-toe boots required in all production areas.",
+DRAFT_HISTORY = {
+    "qb_round1_2020-2024": "Notable 1st-round QBs: Burrow (1.01, 2020), Lawrence (1.01, 2021), Stroud (1.02, 2023), Daniels (1.02, 2024).",
+    "qb_late_2020-2024": "Notable late-round QBs: Purdy (7.262, 2022). Rare to find starters after Round 4.",
+    "wr_round1_2020-2024": "Notable 1st-round WRs: Lamb (1.17, 2020), Chase (1.05, 2021), Wilson (1.10, 2022), Harrison (1.04, 2024).",
 }
 
-def lookup_spec(spec_id: str) -> str:
-    return SPECS.get(spec_id.upper(), f"Spec '{spec_id}' not found.")
+def lookup_player_stats(player_id: str) -> str:
+    return PLAYERS.get(player_id.upper(), f"Player '{player_id}' not found.")
 
-def lookup_form(inspection_type: str) -> str:
-    return FORMS.get(inspection_type.lower(), f"No form for '{inspection_type}'.")
+def get_combine_results(player_id: str) -> str:
+    return COMBINE.get(player_id.upper(), f"No combine data for '{player_id}'.")
 
-def get_ppe(task_type: str) -> str:
-    return PPE.get(task_type.lower(), PPE["general"])
+def search_draft_history(query: str) -> str:
+    return DRAFT_HISTORY.get(query.lower(), f"No draft history for '{query}'.")
 ```
 
 Now define all three tool schemas:
@@ -248,42 +247,42 @@ tools = [
     {
         "type": "function",
         "function": {
-            "name": "lookup_spec",
-            "description": "Look up a manufacturing specification by its ID (e.g., MT-302, WPS-201)",
+            "name": "lookup_player_stats",
+            "description": "Look up a football player's scouting report by their ID (e.g., QB-101, RB-201)",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "spec_id": {"type": "string", "description": "The specification ID"}
+                    "player_id": {"type": "string", "description": "The player ID"}
                 },
-                "required": ["spec_id"],
+                "required": ["player_id"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "lookup_form",
-            "description": "Look up the correct quality form for a given inspection type",
+            "name": "get_combine_results",
+            "description": "Get NFL Combine results for a player (40 time, vertical, broad jump, bench press)",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "inspection_type": {"type": "string", "description": "Type of inspection (visual, dimensional, weld)"}
+                    "player_id": {"type": "string", "description": "The player ID (e.g., QB-101, WR-301)"}
                 },
-                "required": ["inspection_type"],
+                "required": ["player_id"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "get_ppe",
-            "description": "Get PPE requirements for a specific task type",
+            "name": "search_draft_history",
+            "description": "Search historical draft picks by position, round, and year range",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "task_type": {"type": "string", "description": "Type of task (welding, grinding, machining, general)"}
+                    "query": {"type": "string", "description": "Search key like 'qb_round1_2020-2024' or 'wr_round1_2020-2024'"}
                 },
-                "required": ["task_type"],
+                "required": ["query"],
             },
         },
     },
@@ -294,12 +293,12 @@ And a helper to execute whichever tool the model calls:
 
 ```python
 def execute_tool(name: str, args: dict) -> str:
-    if name == "lookup_spec":
-        return lookup_spec(args["spec_id"])
-    elif name == "lookup_form":
-        return lookup_form(args["inspection_type"])
-    elif name == "get_ppe":
-        return get_ppe(args["task_type"])
+    if name == "lookup_player_stats":
+        return lookup_player_stats(args["player_id"])
+    elif name == "get_combine_results":
+        return get_combine_results(args["player_id"])
+    elif name == "search_draft_history":
+        return search_draft_history(args["query"])
     return "Unknown tool"
 ```
 
@@ -310,10 +309,10 @@ def execute_tool(name: str, args: dict) -> str:
 Now let's ask something that requires MULTIPLE lookups:
 
 ```python
-question = "Write a task description for inspecting welds on Frame #4200. Include the torque specs, correct inspection form, and PPE requirements."
+question = "Write a scouting report for QB-101. Include his game stats, combine numbers, and how he compares to recent first-round QBs."
 
 messages = [
-    {"role": "system", "content": "You are a manufacturing technical writer. Use tools to look up accurate information. Never guess specs, forms, or PPE requirements."},
+    {"role": "system", "content": "You are an NFL draft analyst. Use tools to look up accurate information. Never guess stats, combine numbers, or draft history."},
     {"role": "user", "content": question},
 ]
 
@@ -357,15 +356,15 @@ Run it:
 python3 15-agents-and-tool-use/ex2_multi_tool.py
 ```
 
-Watch the tool calls. The model should call multiple tools -- `lookup_spec`, `lookup_form`, and `get_ppe` -- all from a single question. It figured out which information it needed.
+Watch the tool calls. The model should call multiple tools -- `lookup_player_stats`, `get_combine_results`, and `search_draft_history` -- all from a single question. It figured out which information it needed.
 
-The final answer has real spec numbers, the correct form, and actual PPE requirements. All from your database, not from the model's imagination.
+The final answer has real stats, actual combine numbers, and historical draft context. All from your database, not from the model's imagination.
 
 ---
 
 ## Step 8: Why JSON Schemas Are the Right Approach
 
-The native Ollama Python library has a shortcut that lets you pass Python functions directly as tools (`tools=[lookup_spec]`). Ollama builds the schema from your docstrings and type hints automatically.
+The native Ollama Python library has a shortcut that lets you pass Python functions directly as tools (`tools=[lookup_player_stats]`). Ollama builds the schema from your docstrings and type hints automatically.
 
 We're not using that shortcut — and that's intentional.
 
@@ -388,31 +387,31 @@ client = OpenAI(
     api_key="ollama",
 )
 
-SPECS = {
-    "MT-302": "Frame #4200: M8=25-30Nm, M10=45-55Nm, M12=80-100Nm.",
-    "WPS-201": "GMAW carbon steel. ER70S-6 wire. 75/25 Ar/CO2.",
+PLAYERS = {
+    "QB-101": "Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Arm strength: 62 mph.",
+    "RB-201": "Explosive runner with 4.38 40-yard dash. 3.8 yards after contact.",
 }
 
-def lookup_spec(spec_id: str) -> str:
-    """Look up a manufacturing specification by its ID."""
-    return SPECS.get(spec_id.upper(), f"Spec '{spec_id}' not found.")
+def lookup_player_stats(player_id: str) -> str:
+    """Look up a football player's scouting report by their ID."""
+    return PLAYERS.get(player_id.upper(), f"Player '{player_id}' not found.")
 
 # Explicit JSON schema -- works with any OpenAI-compatible provider
 tools = [
     {
         "type": "function",
         "function": {
-            "name": "lookup_spec",
-            "description": "Look up a manufacturing specification by its ID (e.g., MT-302, WPS-201)",
+            "name": "lookup_player_stats",
+            "description": "Look up a football player's scouting report by their ID (e.g., QB-101, RB-201)",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "spec_id": {
+                    "player_id": {
                         "type": "string",
-                        "description": "The specification ID to look up",
+                        "description": "The player ID to look up",
                     }
                 },
-                "required": ["spec_id"],
+                "required": ["player_id"],
             },
         },
     },
@@ -420,7 +419,7 @@ tools = [
 
 response = client.chat.completions.create(
     model="llama3.3:70b",
-    messages=[{"role": "user", "content": "What's the torque spec for Frame #4200?"}],
+    messages=[{"role": "user", "content": "What's the arm strength for QB-101?"}],
     tools=tools,
 )
 
@@ -439,7 +438,7 @@ So far, you call the LLM once, it requests tools, you execute them, you call it 
 Think -> Act -> Observe -> Think -> Act -> Observe -> ... -> Done
 ```
 
-Why? Some questions need multiple rounds of lookup. "Write a complete task description" might require looking up the spec, then the form, then PPE, then realizing it needs a LOTO procedure too.
+Why? Some questions need multiple rounds of lookup. "Write a complete scouting report" might require looking up the player stats, then the combine results, then draft history, then realizing it needs a comparison with another prospect too.
 
 Let's build it:
 
@@ -456,31 +455,30 @@ client = OpenAI(
 )
 
 # Same databases as before
-SPECS = {
-    "MT-302": "Frame #4200: M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. Star pattern.",
-    "WPS-201": "GMAW carbon steel. ER70S-6 wire. 75/25 Ar/CO2 at 25-30 CFH.",
-    "SOP-SAFE-001": "LOTO: notify, shutdown, isolate, lock/tag, release stored energy, verify zero energy.",
+PLAYERS = {
+    "QB-101": "Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Arm strength: 62 mph.",
+    "RB-201": "Explosive runner with 4.38 40-yard dash. 3.8 yards after contact. 45 receptions out of backfield.",
+    "WR-301": "Crisp route runner with elite separation. Full route tree. 4.42 speed, 38-inch vertical. 2.1% drop rate.",
 }
 
-FORMS = {
-    "visual": "Form QC-107: Visual inspection checklist.",
-    "weld": "Form QC-115: Weld inspection per WPS.",
-    "torque": "Form QC-110: Dimensional/torque verification.",
+COMBINE = {
+    "QB-101": "40-yard dash: 4.71s. Vertical: 32in. Broad jump: 9'4\". Bench press: 18 reps.",
+    "RB-201": "40-yard dash: 4.38s. Vertical: 39in. Broad jump: 10'8\". Bench press: 22 reps.",
+    "WR-301": "40-yard dash: 4.42s. Vertical: 38in. Broad jump: 10'4\". Bench press: 14 reps.",
 }
 
-PPE = {
-    "welding": "Auto-darkening helmet, leather gloves, FR clothing, steel-toes.",
-    "grinding": "Face shield, safety glasses, hearing protection, steel-toes.",
-    "general": "Safety glasses, steel-toe boots.",
+DRAFT_HISTORY = {
+    "qb_round1_2020-2024": "Notable 1st-round QBs: Burrow (1.01, 2020), Lawrence (1.01, 2021), Stroud (1.02, 2023).",
+    "qb_late_2020-2024": "Notable late-round QBs: Purdy (7.262, 2022). Rare to find starters after Round 4.",
 }
 
 def execute_tool(name: str, args: dict) -> str:
-    if name == "lookup_spec":
-        return SPECS.get(args["spec_id"].upper(), f"Spec '{args['spec_id']}' not found.")
-    elif name == "lookup_form":
-        return FORMS.get(args["inspection_type"].lower(), "Form not found.")
-    elif name == "get_ppe":
-        return PPE.get(args["task_type"].lower(), PPE["general"])
+    if name == "lookup_player_stats":
+        return PLAYERS.get(args["player_id"].upper(), f"Player '{args['player_id']}' not found.")
+    elif name == "get_combine_results":
+        return COMBINE.get(args["player_id"].upper(), "No combine data found.")
+    elif name == "search_draft_history":
+        return DRAFT_HISTORY.get(args["query"].lower(), "No draft history found.")
     return "Unknown tool"
 ```
 
@@ -491,36 +489,36 @@ tools = [
     {
         "type": "function",
         "function": {
-            "name": "lookup_spec",
-            "description": "Look up a manufacturing specification by ID",
+            "name": "lookup_player_stats",
+            "description": "Look up a football player's scouting report by ID",
             "parameters": {
                 "type": "object",
-                "properties": {"spec_id": {"type": "string", "description": "The spec ID"}},
-                "required": ["spec_id"],
+                "properties": {"player_id": {"type": "string", "description": "The player ID"}},
+                "required": ["player_id"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "lookup_form",
-            "description": "Look up the correct quality form for an inspection type",
+            "name": "get_combine_results",
+            "description": "Get NFL Combine results for a player",
             "parameters": {
                 "type": "object",
-                "properties": {"inspection_type": {"type": "string", "description": "Type: visual, weld, torque"}},
-                "required": ["inspection_type"],
+                "properties": {"player_id": {"type": "string", "description": "The player ID"}},
+                "required": ["player_id"],
             },
         },
     },
     {
         "type": "function",
         "function": {
-            "name": "get_ppe",
-            "description": "Get PPE requirements for a task type",
+            "name": "search_draft_history",
+            "description": "Search historical draft picks by position, round, and year range",
             "parameters": {
                 "type": "object",
-                "properties": {"task_type": {"type": "string", "description": "Type: welding, grinding, general"}},
-                "required": ["task_type"],
+                "properties": {"query": {"type": "string", "description": "Query like: qb_round1_2020-2024, qb_late_2020-2024"}},
+                "required": ["query"],
             },
         },
     },
@@ -535,8 +533,8 @@ def agent_loop(question: str, max_rounds: int = 5) -> str:
 
     messages = [
         {"role": "system", "content": (
-            "You are a manufacturing technical writer. "
-            "Use the provided tools to look up every spec, form, and PPE requirement. "
+            "You are an NFL draft analyst. "
+            "Use the provided tools to look up every player stat, combine result, and draft history. "
             "NEVER guess -- always look it up. "
             "When you have all the information you need, write the final answer."
         )},
@@ -576,12 +574,12 @@ Try it:
 
 ```python
 result = agent_loop(
-    "Write a complete task description for verifying torque on Frame #4200 per MT-302, "
-    "including weld inspection per WPS-201, the correct forms, and all PPE requirements."
+    "Write a complete scouting report for QB-101. Include his game stats, "
+    "combine numbers, and how he compares to recent first-round QBs drafted 2020-2024."
 )
 
 print(f"\n{'='*60}")
-print("FINAL TASK DESCRIPTION:")
+print("FINAL SCOUTING REPORT:")
 print(result)
 ```
 
@@ -594,21 +592,21 @@ python3 15-agents-and-tool-use/ex4_agent_loop.py
 Watch the rounds. The model calls tools, gets results, then decides if it needs more information or has enough to write the final answer. It might take 2-3 rounds.
 
 Notice the pattern:
-- Round 1: Looks up MT-302 and WPS-201
-- Round 2: Looks up the inspection form and PPE
-- Round 3: Writes the final task description using ALL the real data
+- Round 1: Looks up QB-101 stats and combine results
+- Round 2: Searches draft history for recent first-round QBs
+- Round 3: Writes the final scouting report using ALL the real data
 
 That's the agent loop. Think, act, observe, repeat until done.
 
 ---
 
-## Step 10: The Full Manufacturing Agent
+## Step 10: The Full Scouting Agent
 
 Let's put it all together in a clean class. This is the culmination of everything in this module:
 
 ```python
-# 15-agents-and-tool-use/ex5_manufacturing_agent.py
-"""A complete manufacturing agent that gathers info then writes task descriptions."""
+# 15-agents-and-tool-use/ex5_scouting_agent.py
+"""A complete scouting agent that gathers player data then writes draft reports."""
 
 from openai import OpenAI
 import json
@@ -620,42 +618,40 @@ client = OpenAI(
 )
 
 
-class ManufacturingAgent:
-    """Agent that looks up specs, forms, and PPE before writing task descriptions."""
+class ScoutingAgent:
+    """Agent that looks up player stats, combine results, and draft history before writing scouting reports."""
 
     def __init__(self, model: str = "llama3.3:70b"):
         self.model = model
         self.history = []  # Track what the agent looked up
 
         # Knowledge bases
-        self.specs = {
-            "MT-302": "Torque spec Frame #4200: M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. Star pattern. Calibrated wrench ±2%.",
-            "WPS-201": "GMAW carbon steel. ER70S-6 wire. 75/25 Ar/CO2 at 25-30 CFH. Interpass max 400F.",
-            "AWS-D1.1": "Structural welding code. Visual per Section 6. UT for critical joints. Table 6.1 acceptance.",
-            "SOP-SAFE-001": "LOTO: notify operators, normal shutdown, isolate energy, lock/tag, release stored energy, verify zero energy.",
+        self.players = {
+            "QB-101": "Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Excels on intermediate routes (15-25 yards). Reads defenses pre-snap. Arm strength: 62 mph. Weakness: locks onto first read under pressure.",
+            "RB-201": "Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection and blitz pickup.",
+            "WR-301": "Crisp route runner with elite separation. Full route tree, slot and outside. 4.42 speed, 38-inch vertical. 2.1% drop rate. Weakness: press coverage at the line.",
+            "OL-401": "Excellent pass protection anchor. Quick lateral movement. 34-inch arms. Run blocking: 82.5/100. 2 sacks allowed in 580 snaps. Weakness: combo blocks at the second level.",
         }
-        self.forms = {
-            "visual": "Form QC-107: Visual inspection checklist. All items pass or HOLD tag.",
-            "dimensional": "Form QC-110: Dimensional inspection. Record actual vs nominal.",
-            "weld": "Form QC-115: Weld inspection per WPS. Joint type, position, NDE results.",
-            "torque": "Form QC-110: Torque verification. Record spec vs actual values.",
-            "calibration": "Form CAL-201: Calibration record. Serial#, standard used, pass/fail.",
+        self.combine = {
+            "QB-101": "40-yard dash: 4.71s. Vertical: 32in. Broad jump: 9'4\". Bench press: 18 reps. Hand size: 10.25in. Wonderlic: 34.",
+            "RB-201": "40-yard dash: 4.38s. Vertical: 39in. Broad jump: 10'8\". Bench press: 22 reps. 3-cone: 6.89s.",
+            "WR-301": "40-yard dash: 4.42s. Vertical: 38in. Broad jump: 10'4\". Bench press: 14 reps. 3-cone: 6.92s.",
+            "OL-401": "40-yard dash: 5.18s. Vertical: 28in. Broad jump: 8'10\". Bench press: 30 reps. Arm length: 34in. Hand size: 10.5in.",
         }
-        self.ppe = {
-            "welding": "Auto-darkening helmet shade 10-13, leather welding gloves, FR clothing, steel-toe boots, safety glasses under helmet.",
-            "grinding": "Face shield, safety glasses, leather gloves, hearing protection, steel-toe boots. Grinder guard must be in place.",
-            "machining": "Safety glasses, hearing protection if >85dB, steel-toe boots. No loose clothing or jewelry.",
-            "press": "Safety glasses, steel-toe boots, hearing protection. Never bypass light curtains or interlocks.",
-            "general": "Safety glasses and steel-toe boots required in all production areas.",
+        self.draft_history = {
+            "qb_round1_2020-2024": "Notable 1st-round QBs: Burrow (1.01, 2020), Lawrence (1.01, 2021), Stroud (1.02, 2023), Daniels (1.02, 2024).",
+            "qb_late_2020-2024": "Notable late-round QBs: Purdy (7.262, 2022). Rare to find starters after Round 4.",
+            "wr_round1_2020-2024": "Notable 1st-round WRs: Lamb (1.17, 2020), Chase (1.05, 2021), Wilson (1.10, 2022), Harrison (1.04, 2024).",
+            "rb_round1_2020-2024": "Notable 1st-round RBs: Robinson (1.24, 2024), Bijan (1.08, 2023). Position devalued -- fewer early picks.",
         }
 
     def _execute_tool(self, name: str, args: dict) -> str:
-        if name == "lookup_spec":
-            result = self.specs.get(args["spec_id"].upper(), f"Spec '{args['spec_id']}' not found.")
-        elif name == "lookup_form":
-            result = self.forms.get(args["inspection_type"].lower(), "Form not found.")
-        elif name == "get_ppe":
-            result = self.ppe.get(args["task_type"].lower(), self.ppe["general"])
+        if name == "lookup_player_stats":
+            result = self.players.get(args["player_id"].upper(), f"Player '{args['player_id']}' not found.")
+        elif name == "get_combine_results":
+            result = self.combine.get(args["player_id"].upper(), "No combine data found.")
+        elif name == "search_draft_history":
+            result = self.draft_history.get(args["query"].lower(), "No draft history found.")
         else:
             result = "Unknown tool"
         self.history.append({"tool": name, "args": args, "result": result})
@@ -668,28 +664,28 @@ class ManufacturingAgent:
 
         tools = [
             {"type": "function", "function": {
-                "name": "lookup_spec",
-                "description": "Look up a manufacturing specification by ID",
-                "parameters": {"type": "object", "properties": {"spec_id": {"type": "string", "description": "The spec ID (e.g., MT-302)"}}, "required": ["spec_id"]},
+                "name": "lookup_player_stats",
+                "description": "Look up a football player's scouting report by ID",
+                "parameters": {"type": "object", "properties": {"player_id": {"type": "string", "description": "The player ID (e.g., QB-101)"}}, "required": ["player_id"]},
             }},
             {"type": "function", "function": {
-                "name": "lookup_form",
-                "description": "Look up the correct quality form for an inspection type",
-                "parameters": {"type": "object", "properties": {"inspection_type": {"type": "string", "description": "Type: visual, dimensional, weld, torque, calibration"}}, "required": ["inspection_type"]},
+                "name": "get_combine_results",
+                "description": "Get NFL Combine results for a player",
+                "parameters": {"type": "object", "properties": {"player_id": {"type": "string", "description": "The player ID (e.g., QB-101, WR-301)"}}, "required": ["player_id"]},
             }},
             {"type": "function", "function": {
-                "name": "get_ppe",
-                "description": "Get PPE requirements for a task type",
-                "parameters": {"type": "object", "properties": {"task_type": {"type": "string", "description": "Type: welding, grinding, machining, press, general"}}, "required": ["task_type"]},
+                "name": "search_draft_history",
+                "description": "Search historical draft picks by position, round, and year range",
+                "parameters": {"type": "object", "properties": {"query": {"type": "string", "description": "Query like: qb_round1_2020-2024, rb_round1_2020-2024, qb_late_2020-2024"}}, "required": ["query"]},
             }},
         ]
 
         messages = [
             {"role": "system", "content": (
-                "You are an expert manufacturing technical writer. Your job is to write "
-                "accurate, complete task descriptions. ALWAYS use tools to look up specifications, "
-                "forms, and PPE requirements. Never guess or make up reference numbers. "
-                "Include numbered steps, safety requirements, and all relevant spec references."
+                "You are an expert NFL draft analyst. Your job is to write "
+                "accurate, complete scouting reports. ALWAYS use tools to look up player stats, "
+                "combine results, and draft history. Never guess or make up numbers. "
+                "Include measurables, strengths, weaknesses, and historical comparisons."
             )},
             {"role": "user", "content": task},
         ]
@@ -715,15 +711,15 @@ class ManufacturingAgent:
 
 
 # Let's use it
-agent = ManufacturingAgent()
+agent = ScoutingAgent()
 
 task = (
-    "Write a complete task description for verifying torque on Frame Assembly #4200 "
-    "per specification MT-302, with weld inspection per AWS-D1.1 and WPS-201. "
-    "Include the correct inspection forms and all required PPE."
+    "Write a complete scouting report for QB-101. Include his game stats, "
+    "combine measurables, and compare him to recent first-round QBs from 2020-2024. "
+    "Also note any late-round QB success stories for context."
 )
 
-print("=== Manufacturing Agent ===")
+print("=== Scouting Agent ===")
 print(f"Task: {task}\n")
 
 result = agent.run(task)
@@ -733,17 +729,17 @@ for h in agent.history:
     print(f"  {h['tool']}({h['args']}) -> {h['result'][:60]}...")
 
 print(f"\n{'='*60}")
-print("FINAL TASK DESCRIPTION:")
+print("FINAL SCOUTING REPORT:")
 print(result)
 ```
 
 Run it:
 
 ```bash
-python3 15-agents-and-tool-use/ex5_manufacturing_agent.py
+python3 15-agents-and-tool-use/ex5_scouting_agent.py
 ```
 
-Look at the tool usage summary at the end. The agent decided what to look up, looked it up, and then wrote a task description grounded in real data. Every spec number, form reference, and PPE requirement came from your database.
+Look at the tool usage summary at the end. The agent decided what to look up, looked it up, and then wrote a scouting report grounded in real data. Every stat, combine number, and draft comparison came from your database.
 
 ---
 
@@ -756,7 +752,7 @@ Let's recap what just happened:
 3. **The round trip** -- model requests a tool call, you execute it, feed the result back
 4. **Multiple tools** -- the model picks which ones it needs based on the question
 5. **The agent loop** -- think, act, observe, repeat until the model has enough info
-6. **A manufacturing agent** -- gathers specs, forms, and PPE, then writes the task description
+6. **A scouting agent** -- gathers player stats, combine results, and draft history, then writes the report
 
 The key insight: the LLM DECIDES what information it needs. You provide the tools. It calls them. The final output is grounded in real data, not hallucinated.
 
@@ -764,12 +760,12 @@ The key insight: the LLM DECIDES what information it needs. You provide the tool
 
 ## Takeaways
 
-1. **Tool calling lets LLMs access real data** instead of guessing -- critical for manufacturing accuracy
+1. **Tool calling lets LLMs access real data** instead of guessing -- critical for accurate scouting reports
 2. **The model chooses which tools to call** based on the question and tool descriptions
 3. **Good tool descriptions matter** -- the model relies on them to decide when to use each tool
-4. **Agent loops enable multi-step reasoning** -- look up specs THEN write the description
+4. **Agent loops enable multi-step reasoning** -- look up stats THEN write the report
 5. **Your code executes the tools, not the LLM** -- the model just decides what to call
 
 ## Next Up
 
-Agents are powerful but need guardrails. What if the model hallucinates a spec number? What if it generates unsafe instructions? Module 16 covers guardrails and safety -- catching bad output before it reaches the shop floor.
+Agents are powerful but need guardrails. What if the model hallucinates a player stat? What if it generates a bogus scouting grade? Module 16 covers guardrails and safety -- catching bad output before it reaches the front office.

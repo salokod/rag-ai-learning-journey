@@ -2,11 +2,11 @@
 
 ## You can build it. Can you SHIP it?
 
-You've got a RAG pipeline that generates manufacturing task descriptions. It retrieves relevant docs, generates grounded output, evaluates quality, and catches hallucinations.
+You've got a RAG pipeline that generates football scouting reports. It retrieves relevant docs, generates grounded output, evaluates quality, and catches hallucinations.
 
 But right now it only runs in a script on your laptop.
 
-In this module, you'll turn it into something you could actually hand to another team: a real API server with caching, rate limiting, health checks, cost tracking, and graceful error handling. All running locally on your M4 Pro.
+In this module, you'll turn it into something you could actually hand to your front office: a real API server with caching, rate limiting, health checks, cost tracking, and graceful error handling. All running locally on your M4 Pro.
 
 ---
 
@@ -21,7 +21,7 @@ Create this file:
 from fastapi import FastAPI
 import uvicorn
 
-app = FastAPI(title="Manufacturing RAG API")
+app = FastAPI(title="Football Scouting RAG API")
 
 @app.get("/health")
 async def health():
@@ -86,7 +86,7 @@ llm = OpenAI(
     api_key="ollama",
 )
 
-app = FastAPI(title="Manufacturing RAG API")
+app = FastAPI(title="Football Scouting RAG API")
 ```
 
 Now add the knowledge base. In production, you'd load this from persistent storage. For now, we'll seed it inline:
@@ -96,11 +96,11 @@ def setup_kb():
     client = chromadb.Client()
     collection = client.create_collection(name="production_kb")
     docs = [
-        ("MT-302", "Torque Spec MT-302: Frame #4200. M8=25-30Nm, M10=45-55Nm, M12=80-100Nm."),
-        ("WPS-201", "WPS-201: GMAW carbon steel. ER70S-6. 75/25 Ar/CO2. Interpass 400F max."),
-        ("QC-107", "Form QC-107: Visual inspection. Surface, welds, hardware, coating. Fail = HOLD tag."),
-        ("SAFE-001", "LOTO SOP-SAFE-001: Notify, shutdown, isolate, lock/tag, release energy, verify."),
-        ("PPE-001", "PPE: Glasses always. Welding: helmet shade 10-13, gloves, FR. Grinding: face shield."),
+        ("QB-101", "Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Excels on intermediate routes (15-25 yards). Reads defenses pre-snap. Arm strength: 62 mph. Weakness: locks onto first read under pressure."),
+        ("RB-201", "Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection and blitz pickup."),
+        ("WR-301", "Crisp route runner with elite separation. Full route tree, slot and outside. 4.42 speed, 38-inch vertical. 2.1% drop rate. Weakness: press coverage at the line."),
+        ("OL-401", "Excellent pass protection anchor. Quick lateral movement. 34-inch arms. Run blocking: 82.5/100. 2 sacks in 580 snaps. Weakness: combo blocks."),
+        ("DEF-501", "Cover-3 base with single-high safety. Press corners. Pattern-match zone on 3rd down. Aggressive nickel blitz. Weakness: crossing routes against zone."),
     ]
     collection.add(
         ids=[d[0] for d in docs],
@@ -111,7 +111,7 @@ def setup_kb():
 kb = setup_kb()
 ```
 
-Think of this like stocking the parts crib before a shift. You need your reference materials loaded before anyone asks a question.
+Think of this like building your draft board before the combine. You need your scouting reports loaded before anyone asks a question.
 
 Now the query endpoint. We need a request model first:
 
@@ -137,7 +137,7 @@ async def query_kb(req: QueryRequest):
     response = llm.chat.completions.create(
         model="llama3.3:70b",
         messages=[
-            {"role": "system", "content": "Answer using only the context. Cite sources."},
+            {"role": "system", "content": "Answer using only the scouting report context. Cite report IDs."},
             {"role": "user", "content": f"Context:\n{context}\n\nQ: {req.question}"},
         ],
         temperature=0.0,
@@ -160,10 +160,10 @@ Now query it:
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
-  -d '{"question": "What PPE do I need for welding?"}'
+  -d '{"question": "Who has the strongest arm?"}'
 ```
 
-You just served an LLM-powered RAG API locally. A user sends a question, your server retrieves relevant docs from the vector store, sends them to the LLM, and returns a grounded answer with source citations.
+You just served an LLM-powered RAG API locally. A user sends a question, your server retrieves relevant scouting reports from the vector store, sends them to the LLM, and returns a grounded answer with source citations.
 
 Notice how long that took? Probably a few seconds. Let's fix that for repeated queries.
 
@@ -207,7 +207,7 @@ class ResponseCache:
 
 The idea: hash the query into a key, store the result. Next time we see the same query, return the stored result instead of calling the LLM.
 
-This is exactly like keeping a log of part numbers you've already inspected. If the same part comes through again and nothing has changed, you don't re-inspect it from scratch.
+This is exactly like keeping notes on prospects you've already evaluated. If the same player comes up again and nothing has changed, you don't re-watch all the film from scratch.
 
 Now wire it into the endpoint. Add this right before the LLM call:
 
@@ -234,12 +234,12 @@ Restart the server and test it:
 # First call -- cache miss, hits the LLM
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
-  -d '{"question": "What PPE do I need for welding?"}'
+  -d '{"question": "Who has the strongest arm?"}'
 
 # Same call again -- should be instant
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
-  -d '{"question": "What PPE do I need for welding?"}'
+  -d '{"question": "Who has the strongest arm?"}'
 ```
 
 Notice the difference? The second call should come back nearly instantly. Look at the response -- it should say `"cached": true`. That's a cache hit. No LLM call, no vector search, just a dictionary lookup.
@@ -299,7 +299,7 @@ for i in $(seq 1 12); do
   echo "Request $i:"
   curl -s -X POST http://localhost:8000/query \
     -H "Content-Type: application/json" \
-    -d '{"question": "What PPE do I need for welding?"}' | python3 -m json.tool | head -3
+    -d '{"question": "Who has the strongest arm?"}' | python3 -m json.tool | head -3
   echo
 done
 ```
@@ -474,7 +474,7 @@ async def query_kb(req: QueryRequest, request: Request):
         response = llm.chat.completions.create(
             model="llama3.3:70b",
             messages=[
-                {"role": "system", "content": "Answer using only the context. Cite sources."},
+                {"role": "system", "content": "Answer using only the scouting report context. Cite report IDs."},
                 {"role": "user", "content": f"Context:\n{context}\n\nQ: {req.question}"},
             ],
             temperature=0.0,
@@ -493,9 +493,9 @@ async def query_kb(req: QueryRequest, request: Request):
     # ... rest of the endpoint ...
 ```
 
-Notice the graceful degradation. If the LLM is down, we still return the retrieved documents. The user gets relevant reference material even without the generated answer. That's a lot better than a blank error page.
+Notice the graceful degradation. If the LLM is down, we still return the raw scouting reports. The user gets relevant reference material even without the generated answer. That's a lot better than a blank error page.
 
-Think of it like this: if the automated inspection camera goes down on a production line, you don't stop the line entirely. You fall back to manual inspection. Same idea.
+Think of it like this: if the replay system goes down during a game, you don't stop scouting entirely. You fall back to your own eyes and notes. Same idea.
 
 Test it by stopping Ollama and sending a query:
 
@@ -503,7 +503,7 @@ Test it by stopping Ollama and sending a query:
 killall ollama
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
-  -d '{"question": "What is the torque spec for M10 bolts?"}' | python3 -m json.tool
+  -d '{"question": "What are the defensive tendencies on third down?"}' | python3 -m json.tool
 ```
 
 You should get a response with `"degraded": true` and the raw source documents. Start Ollama back up when you're done.
@@ -546,7 +546,7 @@ Now let's put it all together. Here's the complete server with every production 
 
 ```python
 # 18-production-and-deployment/production_server.py
-"""Production RAG API server with caching, rate limiting, health checks, and cost tracking."""
+"""Football Scouting RAG API server with caching, rate limiting, health checks, and cost tracking."""
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -658,11 +658,11 @@ def setup_kb():
     client = chromadb.Client()
     collection = client.create_collection(name="production_kb")
     docs = [
-        ("MT-302", "Torque Spec MT-302: Frame #4200. M8=25-30Nm, M10=45-55Nm, M12=80-100Nm."),
-        ("WPS-201", "WPS-201: GMAW carbon steel. ER70S-6. 75/25 Ar/CO2. Interpass 400F max."),
-        ("QC-107", "Form QC-107: Visual inspection. Surface, welds, hardware, coating. Fail = HOLD tag."),
-        ("SAFE-001", "LOTO SOP-SAFE-001: Notify, shutdown, isolate, lock/tag, release energy, verify."),
-        ("PPE-001", "PPE: Glasses always. Welding: helmet shade 10-13, gloves, FR. Grinding: face shield."),
+        ("QB-101", "Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Excels on intermediate routes (15-25 yards). Reads defenses pre-snap. Arm strength: 62 mph. Weakness: locks onto first read under pressure."),
+        ("RB-201", "Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection and blitz pickup."),
+        ("WR-301", "Crisp route runner with elite separation. Full route tree, slot and outside. 4.42 speed, 38-inch vertical. 2.1% drop rate. Weakness: press coverage at the line."),
+        ("OL-401", "Excellent pass protection anchor. Quick lateral movement. 34-inch arms. Run blocking: 82.5/100. 2 sacks in 580 snaps. Weakness: combo blocks."),
+        ("DEF-501", "Cover-3 base with single-high safety. Press corners. Pattern-match zone on 3rd down. Aggressive nickel blitz. Weakness: crossing routes against zone."),
     ]
     collection.add(
         ids=[d[0] for d in docs],
@@ -675,7 +675,7 @@ llm = OpenAI(
     base_url="http://localhost:11434/v1",
     api_key="ollama",
 )
-app = FastAPI(title="Manufacturing RAG API", version="1.0.0")
+app = FastAPI(title="Football Scouting RAG API", version="1.0.0")
 kb = setup_kb()
 cache = ResponseCache()
 rate_limiter = RateLimiter(max_requests=60, window_seconds=60)
@@ -693,7 +693,7 @@ async def log_requests(request: Request, call_next):
 # --- Endpoints ---
 @app.post("/query", response_model=QueryResponse)
 async def query_kb_endpoint(req: QueryRequest, request: Request):
-    """Query the manufacturing knowledge base with RAG."""
+    """Query the football scouting knowledge base with RAG."""
     start = time.time()
 
     # Rate limit
@@ -720,7 +720,7 @@ async def query_kb_endpoint(req: QueryRequest, request: Request):
         response = llm.chat.completions.create(
             model="llama3.3:70b",
             messages=[
-                {"role": "system", "content": "Answer using only the context. Cite sources."},
+                {"role": "system", "content": "Answer using only the scouting report context. Cite report IDs."},
                 {"role": "user", "content": f"Context:\n{context}\n\nQ: {req.question}"},
             ],
             temperature=0.0,
@@ -735,7 +735,7 @@ async def query_kb_endpoint(req: QueryRequest, request: Request):
     except Exception:
         # Graceful degradation
         return QueryResponse(
-            answer="[LLM unavailable] See source documents.",
+            answer="[LLM unavailable] See scouting reports below.",
             sources=source_ids,
             cached=False,
             latency_ms=(time.time() - start) * 1000,
@@ -782,7 +782,7 @@ async def get_stats():
     }
 
 if __name__ == "__main__":
-    print("Starting Manufacturing RAG API...")
+    print("Starting Football Scouting RAG API...")
     print("  API docs: http://localhost:8000/docs")
     print("  Health:   http://localhost:8000/health")
     print("  Stats:    http://localhost:8000/stats")
@@ -804,17 +804,17 @@ curl http://localhost:8000/health | python3 -m json.tool
 # 2. First query (cache miss)
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
-  -d '{"question": "What PPE do I need for welding?"}'
+  -d '{"question": "Who has the strongest arm?"}'
 
 # 3. Same query (cache hit -- notice the speed)
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
-  -d '{"question": "What PPE do I need for welding?"}'
+  -d '{"question": "Who has the strongest arm?"}'
 
 # 4. Different query
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
-  -d '{"question": "What is the torque spec for M10 bolts on Frame 4200?"}'
+  -d '{"question": "Best pass protector?"}'
 
 # 5. Check your stats
 curl http://localhost:8000/stats | python3 -m json.tool
@@ -860,4 +860,4 @@ Let's recap what's running in that single Python file:
 
 ## What's Next
 
-You have every piece. Module 19 is the capstone: you'll combine RAG, evaluation, guardrails, and these production patterns into one complete manufacturing task description system. Everything you've built across 18 modules, working together.
+You have every piece. Module 19 is the capstone: you'll combine RAG, evaluation, guardrails, and these production patterns into one complete NFL draft scouting report system. Everything you've built across 18 modules, working together.

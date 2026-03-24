@@ -9,15 +9,15 @@ Build evaluation test infrastructure: a golden dataset, synthetic expansion, and
 
 Your evaluation is only as good as your test data. Let's build it.
 
-Think of it this way. You would never qualify a weld process by testing one joint. You run coupon tests -- dozens of them, across different positions, thicknesses, and operators. Then you have a baseline. Every change gets tested against that baseline.
+Think of it this way. You would never evaluate a draft class by watching one game of film. You grade dozens of prospects, across different positions, schemes, and competition levels. Then you have a baseline. Every new piece of film gets evaluated against that baseline.
 
-We are going to build the same thing for your LLM pipeline. A set of known-good examples, a way to expand them, and a benchmark that gives you a number. Before: 72%. After: 86%. That is the data your boss wants to see.
+We are going to build the same thing for your LLM pipeline. A set of known-good examples, a way to expand them, and a benchmark that gives you a number. Before: 72%. After: 86%. That is the data your front office wants to see.
 
 ---
 
 ## Exercise 1: Building a Golden Dataset
 
-A golden dataset is your collection of PERFECT examples. These are written or reviewed by domain experts -- the people who actually know what a good task description looks like.
+A golden dataset is your collection of PERFECT examples. These are written or reviewed by domain experts -- the people who actually know what a good scouting report looks like.
 
 Let's build one entry at a time.
 
@@ -30,108 +30,104 @@ Let's build one entry at a time.
 import json
 ```
 
-Start with one example. Think about a task you know well:
+Start with one example. Think about a prospect you know well:
 
 ```python
 entry_1 = {
     "id": "gold-001",
-    "task_name": "Inspect welded joints on Frame Assembly A",
-    "department": "Quality Control",
-    "context": "AWS D1.1, Form QC-107, fillet gauge required",
-    "expected_output": """INSPECT WELDED JOINTS ON FRAME ASSEMBLY A
+    "task_name": "Evaluate QB pocket passing ability",
+    "department": "Quarterback Scouting",
+    "context": "QB-101 scouting report, 68% completion, 62 mph arm, 2.3s release",
+    "expected_output": """QB POCKET PASSING EVALUATION
 
-1. Verify lockout/tagout is complete on the welding station.
-2. Don required PPE: safety glasses, leather gloves, inspection magnifier.
-3. Inspect all weld joints visually per AWS D1.1 Section 6 -- check for cracks, porosity, and undercut.
-4. Measure weld size with fillet gauge -- minimum 6mm leg per drawing.
-5. Record findings on Form QC-107. Tag defective joints with red HOLD tag and notify supervisor.""",
-    "required_elements": ["numbered_steps", "ppe", "specification_reference", "form_reference", "action_verbs"],
+1. Review game film focusing on intermediate routes (15-25 yards) where prospect excels.
+2. Chart completion percentage by route type -- 68% overall with elite accuracy on crossing routes.
+3. Time release from snap to throw -- 2.3-second average indicates quick processing.
+4. Evaluate pre-snap reads -- prospect consistently identifies defensive coverages before the snap.
+5. Note weakness: locks onto first read under pressure. Track sack rate and pressure-to-scramble ratio.""",
+    "required_elements": ["numbered_steps", "measurables", "film_reference", "weakness_note", "action_verbs"],
     "difficulty": "medium",
 }
 ```
 
 Look at what makes this a good golden example:
 
-- **The expected output is what a real expert would write.** Not LLM-generated, not a guess.
+- **The expected output is what a real scout would write.** Not LLM-generated, not a guess.
 - **It has required_elements** -- a checklist of things the output MUST include.
 - **It has difficulty** -- so you can see if your system handles hard cases vs easy ones.
-- **It has context** -- the reference documents that should inform the answer.
+- **It has context** -- the scouting documents that should inform the answer.
 
 Let's add a second one. Notice how different it is:
 
 ```python
 entry_2 = {
     "id": "gold-002",
-    "task_name": "Perform daily forklift pre-operation inspection",
-    "department": "Warehouse",
-    "context": "OSHA 1910.178, Company SOP-FL-001",
-    "expected_output": """DAILY FORKLIFT PRE-OPERATION INSPECTION
+    "task_name": "Grade running back explosiveness and receiving",
+    "department": "Running Back Scouting",
+    "context": "RB-201 scouting report, 4.38 40-yard dash, 3.8 YAC, 45 receptions",
+    "expected_output": """RUNNING BACK EXPLOSIVENESS AND RECEIVING GRADE
 
-1. Check tire condition and inflation pressure visually.
-2. Test horn, headlights, backup alarm, and strobe light.
-3. Verify hydraulic fluid level -- add if below MIN mark on dipstick.
-4. Inspect mast chains for wear, damage, or excessive slack.
-5. Test service brake and parking brake before loading.
-6. Record inspection results on daily checklist per SOP-FL-001. Do not operate if any item fails -- report to maintenance.""",
-    "required_elements": ["numbered_steps", "specification_reference", "action_verbs", "fail_criteria"],
+1. Review combine data -- 4.38 40-yard dash confirms top-tier straight-line speed.
+2. Chart yards after contact -- 3.8 average shows ability to break tackles at the second level.
+3. Evaluate vision on film -- prospect finds cutback lanes consistently, reads blocks well.
+4. Grade receiving ability -- 45 receptions out of backfield shows viable third-down role.
+5. Flag weakness: pass protection and blitz pickup are below average. Will need coaching at next level.""",
+    "required_elements": ["numbered_steps", "measurables", "action_verbs", "weakness_note"],
     "difficulty": "easy",
 }
 ```
 
-This one is "easy" because forklift inspections are straightforward -- no complex measurements, no precision tolerances. Your system should nail this every time. If it cannot, something is wrong.
+This one is "easy" because running back evaluations are straightforward -- clear measurables, defined role. Your system should nail this every time. If it cannot, something is wrong.
 
 Let's add three more to round out the set:
 
 ```python
 entry_3 = {
     "id": "gold-003",
-    "task_name": "Set up CNC lathe for precision shaft machining",
-    "department": "Machining",
-    "context": "Drawing SH-4402-Rev.B, tolerance +/-0.005\", Haas ST-20",
-    "expected_output": """SET UP CNC LATHE FOR PRECISION SHAFT MACHINING
+    "task_name": "Evaluate wide receiver route running and separation",
+    "department": "Wide Receiver Scouting",
+    "context": "WR-301 scouting report, 4.42 speed, 38-inch vertical, 2.1% drop rate",
+    "expected_output": """WIDE RECEIVER ROUTE RUNNING AND SEPARATION EVALUATION
 
-1. Review drawing SH-4402-Rev.B and verify material is staged (confirm heat lot).
-2. Load program from DNC server -- verify program number matches setup sheet.
-3. Install 3-jaw chuck with soft jaws bored to part diameter +0.002".
-4. Set tool offsets using the Renishaw tool setter. Verify against setup sheet (+/-0.001").
-5. Run first article at 50% rapid, 75% feed override. Measure OD, length, and runout.
-6. Record first article measurements on FAIR form. Proceed to production after QC approval.""",
-    "required_elements": ["numbered_steps", "drawing_reference", "measurements", "action_verbs", "first_article"],
+1. Break down route tree on film -- prospect runs full tree from both slot and outside alignments.
+2. Grade separation ability -- elite at creating space with crisp breaks and deception.
+3. Verify combine measurables -- 4.42 speed and 38-inch vertical confirm high-end athleticism.
+4. Chart hands reliability -- 2.1% drop rate is elite among this draft class.
+5. Note weakness: struggles with press coverage at the line of scrimmage. Needs to add strength to counter physical corners.""",
+    "required_elements": ["numbered_steps", "film_reference", "measurables", "action_verbs", "weakness_note"],
     "difficulty": "hard",
 }
 
 entry_4 = {
     "id": "gold-004",
-    "task_name": "Replace hydraulic cylinder seals",
-    "department": "Maintenance",
-    "context": "Machine: 200-ton press, Seal kit P/N HK-200-SEAL, SOP-SAFE-001 for LOTO",
-    "expected_output": """REPLACE HYDRAULIC CYLINDER SEALS
+    "task_name": "Grade offensive lineman pass protection",
+    "department": "Offensive Line Scouting",
+    "context": "OL-401 scouting report, 34-inch arms, 82.5 run blocking grade, 2 sacks in 580 snaps",
+    "expected_output": """OFFENSIVE LINEMAN PASS PROTECTION GRADE
 
-1. Perform lockout/tagout per SOP-SAFE-001. Bleed residual hydraulic pressure.
-2. Disconnect hydraulic lines and cap all open ports to prevent contamination.
-3. Remove cylinder from machine using overhead crane (rated >2 ton). Wear hard hat.
-4. Disassemble cylinder, remove old seals. Inspect bore and rod for scoring (max 0.002" depth).
-5. Install new seals from kit HK-200-SEAL. Lubricate with clean hydraulic fluid before installation.
-6. Reassemble, reinstall, reconnect lines. Bleed air from circuit.
-7. Remove LOTO, pressurize slowly. Check for leaks at zero, 50%, and 100% pressure. Log on PM-105.""",
-    "required_elements": ["numbered_steps", "loto", "part_numbers", "measurements", "pressure_test"],
+1. Review pass protection snaps on film -- 2 sacks allowed in 580 snaps indicates elite anchor.
+2. Measure arm length -- 34-inch arms provide excellent punch range and leverage advantage.
+3. Evaluate lateral movement -- quick feet allow prospect to mirror speed rushers effectively.
+4. Grade run blocking -- 82.5/100 shows above-average ability to create movement at the point of attack.
+5. Note weakness: combo blocks are inconsistent. Struggles to transition from double team to second-level linebacker.
+6. Project role: Day 1 starter at guard or right tackle. Pass protection is NFL-ready.""",
+    "required_elements": ["numbered_steps", "measurables", "film_reference", "weakness_note", "projection"],
     "difficulty": "hard",
 }
 
 entry_5 = {
     "id": "gold-005",
-    "task_name": "Calibrate digital caliper",
-    "department": "Metrology",
-    "context": "NIST-traceable gauge blocks, Calibration SOP-CAL-003, Form CAL-201",
-    "expected_output": """CALIBRATE DIGITAL CALIPER
+    "task_name": "Analyze defensive scheme tendencies",
+    "department": "Defensive Scouting",
+    "context": "DEF-501 scouting report, Cover-3 base, press corners, pattern-match zone on 3rd down",
+    "expected_output": """DEFENSIVE SCHEME TENDENCY ANALYSIS
 
-1. Clean caliper jaws and gauge blocks with lint-free cloth and isopropyl alcohol.
-2. Zero the caliper with jaws fully closed -- verify display reads 0.000".
-3. Measure gauge blocks at 0.500", 1.000", 2.000", and 4.000" (NIST-traceable set).
-4. Record all readings on Form CAL-201. Tolerance: +/-0.001" at each point.
-5. If any reading is out of tolerance, adjust per manufacturer instructions and re-test.
-6. Apply calibration sticker with date, technician ID, and next-due date. Return to service.""",
-    "required_elements": ["numbered_steps", "form_reference", "measurements", "tolerance", "calibration_sticker"],
+1. Chart base defense -- Cover-3 with single-high safety is the primary look on early downs.
+2. Evaluate corner technique -- press coverage at the line with trail technique underneath.
+3. Break down third-down package -- pattern-match zone replaces pure man coverage, aggressive nickel blitz.
+4. Identify tendency: team runs aggressive nickel blitz on 3rd-and-medium (4-7 yards).
+5. Note weakness: crossing routes consistently beat the zone coverage. Quick slants and mesh concepts are the primary exploits.""",
+    "required_elements": ["numbered_steps", "scheme_reference", "tendencies", "action_verbs", "weakness_note"],
     "difficulty": "medium",
 }
 ```
@@ -148,7 +144,7 @@ with open(output_path, "w") as f:
 print(f"Golden dataset saved: {output_path}")
 print(f"  {len(golden_dataset)} examples")
 print(f"  Difficulties: {[e['difficulty'] for e in golden_dataset]}")
-print(f"  Departments: {[e['department'] for e in golden_dataset]}")
+print(f"  Positions: {[e['department'] for e in golden_dataset]}")
 ```
 
 Run it:
@@ -157,7 +153,7 @@ Run it:
 python 13-evaluation-datasets-and-benchmarks/ex1_golden_dataset.py
 ```
 
-Check the JSON file that was created. Open it, look through it. This is your ground truth. Version control this file -- treat changes to it like code changes. A PR to update the golden dataset should be reviewed by a domain expert.
+Check the JSON file that was created. Open it, look through it. This is your ground truth. Version control this file -- treat changes to it like code changes. A PR to update the golden dataset should be reviewed by a scout or analyst who knows football.
 
 **Five examples is a good start, but it is not enough to be confident.** You need broader coverage. Let's generate more.
 
@@ -165,7 +161,7 @@ Check the JSON file that was created. Open it, look through it. This is your gro
 
 ## Exercise 2: Generating Synthetic Test Cases
 
-Writing golden examples by hand is slow. Five took us a while. Getting to 50 would take days. So let's use the LLM to generate synthetic test cases, then review them by hand.
+Writing golden examples by hand is slow. Five took us a while. Getting to 50 would take days. So let's use the LLM to generate synthetic scouting Q&A pairs, then review them by hand.
 
 The key word there is "review." Synthetic data is a starting point, not a finished product.
 
@@ -189,27 +185,27 @@ with open("13-evaluation-datasets-and-benchmarks/golden_dataset.json") as f:
     golden = json.load(f)
 ```
 
-Now let's ask the LLM to generate new tasks. We show it our golden examples so it understands the format:
+Now let's ask the LLM to generate new scouting evaluations. We show it our golden examples so it understands the format:
 
 ```python
 examples_text = "\n\n".join(
-    f"Task: {g['task_name']}\nDept: {g['department']}\nContext: {g['context']}\nDifficulty: {g['difficulty']}"
+    f"Task: {g['task_name']}\nPosition: {g['department']}\nContext: {g['context']}\nDifficulty: {g['difficulty']}"
     for g in golden[:3]
 )
 
-generation_prompt = f"""Based on these manufacturing task examples, generate 5 NEW and DIFFERENT tasks.
+generation_prompt = f"""Based on these football scouting evaluation examples, generate 5 NEW and DIFFERENT evaluations.
 
 EXAMPLES:
 {examples_text}
 
-Generate 5 new tasks covering these departments: assembly, painting, shipping, electrical, quality lab.
+Generate 5 new evaluations covering these positions: tight end, safety, edge rusher, interior DL, cornerback.
 
 Return a JSON array. Each item needs:
-- task_name: descriptive name
-- department: which department
-- context: relevant specs, forms, standards
+- task_name: descriptive evaluation name
+- department: which position group
+- context: relevant scouting data, measurables, film notes
 - difficulty: "easy", "medium", or "hard"
-- required_elements: list of what a good description should include
+- required_elements: list of what a good scouting report should include
 
 Return ONLY the JSON array, no other text."""
 ```
@@ -250,12 +246,12 @@ except json.JSONDecodeError as e:
 
 **Stop and look at these.** Before you save them, ask yourself:
 
-- Do the tasks make sense for a real factory?
-- Are the contexts realistic? (Real spec numbers, real form names?)
+- Do the evaluations make sense for real NFL scouting?
+- Are the contexts realistic? (Real measurables, real film observations?)
 - Is the difficulty rating accurate?
 - Are there any duplicates of your golden examples?
 
-This is the human review step. In production, you would have a domain expert spend 10 minutes checking these. Let's save the ones that pass review:
+This is the human review step. In production, you would have a scout spend 10 minutes checking these. Let's save the ones that pass review:
 
 ```python
 if synthetic:
@@ -270,13 +266,13 @@ if synthetic:
 Now let's generate expected outputs for the synthetic tasks too. This gives us something to compare against:
 
 ```python
-print("\n--- Generating expected outputs for synthetic tasks ---\n")
+print("\n--- Generating expected outputs for synthetic evaluations ---\n")
 for i, task in enumerate(synthetic[:3]):  # Do 3 to save time
     response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
-            {"role": "system", "content": "You are a senior manufacturing technical writer. Write 3-5 numbered steps with safety notes and spec references."},
-            {"role": "user", "content": f"Task: {task['task_name']}\nContext: {task.get('context', 'N/A')}"},
+            {"role": "system", "content": "You are a senior NFL scout. Write 3-5 numbered evaluation points with measurables, film notes, and prospect grades."},
+            {"role": "user", "content": f"Evaluation: {task['task_name']}\nContext: {task.get('context', 'N/A')}"},
         ],
         temperature=0.0,
     )
@@ -292,7 +288,7 @@ if synthetic:
     print("Updated synthetic dataset with expected outputs.")
 ```
 
-**The workflow is: generate, review, refine, save.** Never trust synthetic data blindly. The LLM is good at creating plausible-looking tasks, but a domain expert catches things like "that is not how you calibrate that instrument" or "that spec number does not exist."
+**The workflow is: generate, review, refine, save.** Never trust synthetic data blindly. The LLM is good at creating plausible-looking evaluations, but a real scout catches things like "that 40 time is unrealistic for an interior DL" or "that coverage scheme does not exist."
 
 ---
 
@@ -335,19 +331,13 @@ def evaluate_output(generated: str, task: dict) -> dict:
     # Check for required elements
     element_checks = {
         "numbered_steps": len(steps) >= 3,
-        "ppe": any(w in generated.lower() for w in ["ppe", "glasses", "gloves", "helmet", "boots"]),
-        "specification_reference": bool(re.search(r'[A-Z]{2,}[\s-]\d', generated)),
-        "form_reference": bool(re.search(r'[Ff]orm\s+[A-Z]', generated)),
-        "action_verbs": any(w in generated.lower() for w in ["inspect", "verify", "check", "install", "remove", "record", "measure"]),
-        "loto": any(w in generated.lower() for w in ["lockout", "tagout", "loto"]),
-        "measurements": bool(re.search(r'\d+\.?\d*\s*(mm|Nm|"|inch|PSI)', generated)),
-        "drawing_reference": bool(re.search(r'[Dd]rawing', generated)),
-        "fail_criteria": any(w in generated.lower() for w in ["fail", "reject", "hold", "do not"]),
-        "part_numbers": bool(re.search(r'[A-Z]{1,3}-\d{3,}', generated)),
-        "tolerance": bool(re.search(r'[+±]', generated)),
-        "first_article": "first article" in generated.lower(),
-        "calibration_sticker": "calibration" in generated.lower(),
-        "pressure_test": "pressure" in generated.lower(),
+        "measurables": any(w in generated.lower() for w in ["40-yard", "vertical", "arm strength", "speed", "release", "mph", "dash"]),
+        "film_reference": any(w in generated.lower() for w in ["film", "tape", "game", "snap", "rep"]),
+        "scheme_reference": any(w in generated.lower() for w in ["cover", "zone", "man", "blitz", "press", "nickel"]),
+        "action_verbs": any(w in generated.lower() for w in ["evaluate", "grade", "chart", "review", "break down", "measure", "project"]),
+        "weakness_note": any(w in generated.lower() for w in ["weakness", "concern", "struggles", "below average", "needs"]),
+        "tendencies": any(w in generated.lower() for w in ["tendency", "pattern", "consistently", "frequently", "primary"]),
+        "projection": any(w in generated.lower() for w in ["project", "starter", "role", "day 1", "round", "ceiling"]),
     }
 
     required = task.get("required_elements", [])
@@ -410,11 +400,11 @@ golden_path = "13-evaluation-datasets-and-benchmarks/golden_dataset.json"
 
 # Run 1: Minimal prompt (the lazy approach)
 print("=== Benchmark Run 1: Minimal Prompt ===")
-print("Prompt: 'Write a manufacturing task description.'\n")
+print("Prompt: 'Write an NFL scouting report.'\n")
 
 run1 = run_benchmark(
     golden_path,
-    system_prompt="Write a manufacturing task description.",
+    system_prompt="Write an NFL scouting report.",
 )
 
 print(f"  Average score: {run1['avg_score']:.0%}")
@@ -429,13 +419,13 @@ Now the good prompt:
 ```python
 # Run 2: Detailed prompt (the engineered approach)
 print("\n=== Benchmark Run 2: Detailed Prompt ===")
-detailed_prompt = """You are a senior manufacturing technical writer at an ISO 9001 facility.
-Write task descriptions with:
-- Numbered steps (3-7 steps), each starting with an action verb
-- PPE and safety requirements where applicable
-- References to specific forms, specifications, and part numbers
-- Measurable acceptance criteria
-- Active voice, 8th-grade reading level, 50-120 words"""
+detailed_prompt = """You are a senior NFL draft analyst preparing scouting evaluations.
+Write scouting reports with:
+- Numbered evaluation points (3-7 points), each starting with an action verb
+- Combine measurables and game stats where available
+- References to specific film, games, and scouting data
+- Identified weaknesses and projection to the next level
+- Active voice, clear and direct, 50-120 words"""
 
 print(f"Prompt: '{detailed_prompt[:60]}...'\n")
 
@@ -507,10 +497,10 @@ def evaluate_output(generated: str, task: dict) -> dict:
     steps = re.findall(r'^\s*\d+[\.\)]', generated, re.MULTILINE)
     element_checks = {
         "numbered_steps": len(steps) >= 3,
-        "ppe": any(w in generated.lower() for w in ["ppe", "safety", "glasses", "gloves", "helmet"]),
-        "specification_reference": bool(re.search(r'[A-Z]{2,}[\s-]\d', generated)),
-        "form_reference": bool(re.search(r'[Ff]orm\s+[A-Z]', generated)),
-        "action_verbs": any(w in generated.lower() for w in ["inspect", "verify", "check", "install", "record", "measure"]),
+        "measurables": any(w in generated.lower() for w in ["40-yard", "vertical", "arm strength", "speed", "release", "mph"]),
+        "film_reference": any(w in generated.lower() for w in ["film", "tape", "game", "snap", "rep"]),
+        "scheme_reference": any(w in generated.lower() for w in ["cover", "zone", "man", "blitz", "press"]),
+        "action_verbs": any(w in generated.lower() for w in ["evaluate", "grade", "chart", "review", "break down", "measure"]),
     }
     required = task.get("required_elements", [])
     if required:
@@ -536,7 +526,7 @@ def run(prompt_file: str = None):
             system_prompt = f.read().strip()
         print(f"Using prompt from: {prompt_file}")
     else:
-        system_prompt = "You are a manufacturing technical writer. Write numbered steps with safety and spec references."
+        system_prompt = "You are an NFL draft analyst. Write numbered evaluation points with measurables and film references."
         print("Using default prompt.")
 
     print(f"Running {len(golden)} test cases...\n")
@@ -576,7 +566,7 @@ Now you can run your benchmark like this:
 python 13-evaluation-datasets-and-benchmarks/ex4_benchmark_runner.py
 
 # With a custom prompt from a file
-echo "You are a manufacturing writer. Write 3-5 steps." > my_prompt.txt
+echo "You are an NFL scout. Write 3-5 evaluation points." > my_prompt.txt
 python 13-evaluation-datasets-and-benchmarks/ex4_benchmark_runner.py my_prompt.txt
 ```
 
@@ -588,7 +578,7 @@ One command. One number. That is what makes a benchmark actually useful.
 
 1. **Golden datasets are your ground truth** -- expert-written, version-controlled, reviewed like code
 2. **Start with 5 examples, grow as you find edge cases** -- you do not need 500 on day one
-3. **Synthetic data scales coverage** but always needs human review -- the LLM generates plausible fakes
+3. **Synthetic data scales coverage** but always needs scout review -- the LLM generates plausible fakes
 4. **Regression benchmarks give you a number** -- before and after, no more guessing
 5. **Make benchmarks easy to run** -- if it takes more than one command, people will not run it
 6. **Version your eval data in git** -- it is as important as your code

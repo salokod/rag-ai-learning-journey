@@ -69,12 +69,12 @@ Ragas evaluates individual samples. Each sample is a question + answer + context
 
 ```python
 sample = SingleTurnSample(
-    user_input="What is the torque spec for M10 bolts on Frame Assembly #4200?",
-    response="The torque specification for M10 bolts on Frame Assembly #4200 is 45-55 Nm, per specification MT-302.",
+    user_input="What is the quarterback's completion rate and release time?",
+    response="The quarterback completes 68% of passes with a 2.3-second average release time, per scouting report QB-101.",
     retrieved_contexts=[
-        "Torque Specification MT-302 for Frame Assembly #4200: "
-        "M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. "
-        "Use calibrated torque wrench +/-2%."
+        "QB-101: Pocket passer with elite accuracy. Completes 68% of passes "
+        "with 2.3-second average release. Excels on intermediate routes (15-25 yards). "
+        "Reads defenses pre-snap. Arm strength: 62 mph."
     ],
 )
 ```
@@ -92,7 +92,7 @@ score = asyncio.run(faithfulness.single_turn_ascore(sample))
 print(f"Faithfulness: {score:.2f}")
 ```
 
-You should see something like `0.95` or `1.0`. That means the answer is well-grounded in the context -- it didn't make anything up. Every claim in the answer ("45-55 Nm", "MT-302") can be traced back to the retrieved document.
+You should see something like `0.95` or `1.0`. That means the answer is well-grounded in the context -- it didn't make anything up. Every claim in the answer ("68%", "2.3-second", "QB-101") can be traced back to the retrieved document.
 
 ### Step 4: Now break it on purpose
 
@@ -100,12 +100,12 @@ What happens when the LLM hallucinates? Let's create a bad example:
 
 ```python
 bad_sample = SingleTurnSample(
-    user_input="What is the torque spec for M10 bolts on Frame Assembly #4200?",
-    response="The torque specification for M10 bolts is 120 Nm. Always use an impact wrench for faster assembly. Refer to ISO 9001 for quality standards.",
+    user_input="What is the quarterback's completion rate and release time?",
+    response="The quarterback completes 82% of passes with a 1.9-second release. He is a dual-threat who rushed for 800 yards. Comparable to Patrick Mahomes.",
     retrieved_contexts=[
-        "Torque Specification MT-302 for Frame Assembly #4200: "
-        "M8=25-30Nm, M10=45-55Nm, M12=80-100Nm. "
-        "Use calibrated torque wrench +/-2%."
+        "QB-101: Pocket passer with elite accuracy. Completes 68% of passes "
+        "with 2.3-second average release. Excels on intermediate routes (15-25 yards). "
+        "Reads defenses pre-snap. Arm strength: 62 mph."
     ],
 )
 
@@ -113,9 +113,9 @@ bad_score = asyncio.run(faithfulness.single_turn_ascore(bad_sample))
 print(f"Faithfulness (hallucinated): {bad_score:.2f}")
 ```
 
-The score should drop significantly -- maybe `0.2` or `0.3`. Ragas caught it. The answer claims 120 Nm (wrong), mentions impact wrench (not in context), and cites ISO 9001 (not in context). Three hallucinations in one answer, and faithfulness flagged them.
+The score should drop significantly -- maybe `0.2` or `0.3`. Ragas caught it. The answer claims 82% completion (wrong), mentions rushing yards (not in context), and cites a Mahomes comparison (not in context). Three hallucinations in one answer, and faithfulness flagged them.
 
-This is why faithfulness is the most critical metric for manufacturing. Wrong torque specs can break parts. Wrong tool recommendations can injure people.
+This is why faithfulness is the most critical metric for football scouting. Wrong stats can lead to bad draft picks. Fabricated measurables can cost a franchise millions.
 
 ---
 
@@ -140,11 +140,11 @@ Now try an off-topic answer:
 
 ```python
 offtopic_sample = SingleTurnSample(
-    user_input="What is the torque spec for M10 bolts on Frame Assembly #4200?",
-    response="Frame Assembly #4200 is manufactured at our Toledo plant. The assembly line runs two shifts, Monday through Friday. Quality inspection occurs at station 7.",
+    user_input="What is the quarterback's completion rate and release time?",
+    response="The quarterback played at a Big Ten school. He started 3 seasons and was team captain. His coach praised his leadership in interviews.",
     retrieved_contexts=[
-        "Torque Specification MT-302 for Frame Assembly #4200: "
-        "M8=25-30Nm, M10=45-55Nm, M12=80-100Nm."
+        "QB-101: Pocket passer with elite accuracy. Completes 68% of passes "
+        "with 2.3-second average release. Arm strength: 62 mph."
     ],
 )
 
@@ -152,7 +152,7 @@ score = asyncio.run(relevancy.single_turn_ascore(offtopic_sample))
 print(f"Answer relevancy (off-topic): {score:.2f}")
 ```
 
-The answer is factual-sounding, but it completely ignores the question. Relevancy catches this -- faithfulness alone might not, because the answer isn't necessarily *unfaithful* if that plant info were in the context.
+The answer is factual-sounding, but it completely ignores the question. Relevancy catches this -- faithfulness alone might not, because the answer isn't necessarily *unfaithful* if that background info were in the context.
 
 ### Step 6: Context precision
 
@@ -165,11 +165,11 @@ context_precision = LLMContextPrecisionWithoutReference(llm=judge_llm)
 
 # Good retrieval -- the context is exactly what we need
 good_retrieval = SingleTurnSample(
-    user_input="What PPE is required for MIG welding?",
-    response="MIG welding requires an auto-darkening helmet (shade 10-13), leather welding gloves, FR clothing, and steel-toe boots.",
+    user_input="Who has the best pass protection among the prospects?",
+    response="The offensive lineman in report OL-401 has excellent pass protection, allowing only 2 sacks in 580 snaps with 34-inch arms.",
     retrieved_contexts=[
-        "PPE for welding: Auto-darkening helmet shade 10-13, leather welding gloves, FR clothing, steel-toe boots. Safety glasses under helmet.",
-        "GMAW welding parameters: ER70S-6 wire, 75/25 Ar/CO2 at 25-30 CFH.",
+        "OL-401: Excellent pass protection anchor. Quick lateral movement. 34-inch arms. Run blocking: 82.5/100. 2 sacks in 580 snaps. Weakness: combo blocks.",
+        "RB-201: Explosive runner with 4.38 40-yard dash. Exceptional vision. Weakness: pass protection and blitz pickup.",
     ],
 )
 
@@ -181,12 +181,12 @@ Now try with irrelevant context mixed in:
 
 ```python
 noisy_retrieval = SingleTurnSample(
-    user_input="What PPE is required for MIG welding?",
-    response="Welding requires appropriate protective equipment.",
+    user_input="Who has the best pass protection among the prospects?",
+    response="The offensive lineman has good pass protection skills.",
     retrieved_contexts=[
-        "The cafeteria menu is updated weekly. Tuesday is taco day.",
-        "Parking lot B will be resurfaced next month.",
-        "PPE for welding: Auto-darkening helmet shade 10-13, leather gloves.",
+        "The team cafeteria serves lunch from 11:30 to 1:00 daily.",
+        "The practice facility turf was replaced last summer.",
+        "OL-401: Excellent pass protection anchor. Quick lateral movement. 34-inch arms.",
     ],
 )
 
@@ -207,19 +207,19 @@ context_recall = LLMContextRecall(llm=judge_llm)
 
 # Missing context -- ground truth mentions things not in retrieved docs
 incomplete_retrieval = SingleTurnSample(
-    user_input="What is the complete LOTO procedure?",
-    response="Lock out the machine and apply your tag.",
+    user_input="What is the complete scouting profile for the running back?",
+    response="The running back has a fast 40-yard dash time.",
     retrieved_contexts=[
-        "Apply personal lock and tag to energy isolation device."
+        "RB-201: Explosive runner with 4.38 40-yard dash."
     ],
-    reference="LOTO: 1) Notify affected operators, 2) Normal shutdown, 3) Isolate all energy sources, 4) Apply personal lock and tag, 5) Release stored energy, 6) Verify zero energy state.",
+    reference="RB-201: Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection and blitz pickup.",
 )
 
 score = asyncio.run(context_recall.single_turn_ascore(incomplete_retrieval))
 print(f"Context recall (incomplete): {score:.2f}")
 ```
 
-Low score -- the retrieved context only covers step 4 of a 6-step procedure. The retriever missed most of the relevant information. In manufacturing, this is dangerous: an operator following only step 4 skips the critical "verify zero energy" step.
+Low score -- the retrieved context only covers the 40 time from a full scouting profile. The retriever missed most of the relevant information. In football scouting, this is costly: a GM seeing only speed data might overdraft a one-dimensional back who can't pass protect.
 
 ---
 
@@ -255,39 +255,39 @@ judge_embeddings = LangchainEmbeddingsWrapper(
 
 samples = [
     SingleTurnSample(
-        user_input="What torque do M10 bolts need on Frame #4200?",
-        response="M10 bolts on Frame #4200 need 45-55 Nm per MT-302.",
+        user_input="What is the quarterback's completion rate?",
+        response="The QB completes 68% of passes with a 2.3-second release per QB-101.",
         retrieved_contexts=[
-            "MT-302: Frame #4200. M8=25-30Nm. M10=45-55Nm. M12=80-100Nm."
+            "QB-101: Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release."
         ],
     ),
     SingleTurnSample(
-        user_input="What shielding gas for MIG welding steel?",
-        response="Use 75% Argon / 25% CO2 at 25-30 CFH per WPS-201.",
+        user_input="Who has the best pass protection?",
+        response="The OL prospect in OL-401 has excellent pass protection, allowing only 2 sacks in 580 snaps.",
         retrieved_contexts=[
-            "WPS-201: GMAW carbon steel. ER70S-6 wire. "
-            "75/25 Ar/CO2 shielding gas at 25-30 CFH."
+            "OL-401: Excellent pass protection anchor. Quick lateral movement. "
+            "34-inch arms. 2 sacks in 580 snaps."
         ],
     ),
     SingleTurnSample(
-        user_input="What happens when a part fails inspection?",
-        response="Apply red HOLD tag and notify shift supervisor per QC-107.",
+        user_input="What is the running back's yards after contact?",
+        response="The RB averages 3.8 yards after contact per RB-201.",
         retrieved_contexts=[
-            "QC-107: All items must pass. Fail = red HOLD tag + notify supervisor."
+            "RB-201: Explosive runner with 4.38 40-yard dash. 3.8 yards after contact. 45 receptions out of backfield."
         ],
     ),
     SingleTurnSample(
-        user_input="Who can remove a lockout tag?",
-        response="Only the person who applied the lock can remove it.",
+        user_input="What is the wide receiver's drop rate?",
+        response="The WR has a 2.1% drop rate per WR-301.",
         retrieved_contexts=[
-            "LOTO: Personal lock and tag. Only lock owner removes."
+            "WR-301: Crisp route runner with elite separation. 4.42 speed, 38-inch vertical. 2.1% drop rate."
         ],
     ),
     SingleTurnSample(
-        user_input="When is hearing protection required?",
-        response="Hearing protection is required above 85dB per PPE-001.",
+        user_input="What is the defense's base coverage scheme?",
+        response="The defense runs Cover-3 base with single-high safety and press corners per DEF-501.",
         retrieved_contexts=[
-            "PPE-001: Hearing protection above 85dB. Steel-toe boots required."
+            "DEF-501: Cover-3 base with single-high safety. Press corners. Pattern-match zone on 3rd down."
         ],
     ),
 ]
@@ -334,7 +334,7 @@ for _, row in df.iterrows():
         print(f"  *** INVESTIGATE:{flag}")
 ```
 
-This is how you find the questions your RAG pipeline struggles with. Maybe it retrieves the wrong document for LOTO questions, or maybe the welding answers add details not in the context. Each low score points you to a specific fix.
+This is how you find the questions your RAG pipeline struggles with. Maybe it retrieves the wrong scouting report for defensive scheme questions, or maybe the offensive line answers add details not in the context. Each low score points you to a specific fix.
 
 ---
 
@@ -377,25 +377,25 @@ relevancy_metric = ResponseRelevancy(
 # BEFORE: Basic RAG with vague chunking, generic prompt
 before_samples = [
     SingleTurnSample(
-        user_input="What is the maximum interpass temperature for welding?",
-        response="The welding procedure mentions temperature requirements.",
+        user_input="What is the quarterback's arm strength?",
+        response="The quarterback has good arm strength.",
         retrieved_contexts=[
-            "WPS-201: GMAW welding of carbon steel. "
-            "Various temperature and gas requirements apply."
+            "QB-101: Various physical and performance attributes "
+            "were measured at the combine."
         ],
     ),
     SingleTurnSample(
-        user_input="What form do I use for visual inspection?",
-        response="You should use an inspection form.",
+        user_input="What are the running back's weaknesses?",
+        response="The running back has some areas to improve.",
         retrieved_contexts=[
-            "Quality forms are used for different inspection types."
+            "RB-201: Running back prospect with various strengths and weaknesses."
         ],
     ),
     SingleTurnSample(
-        user_input="What's the torque pattern for Frame #4200?",
-        response="Torque the bolts on Frame #4200.",
+        user_input="What is the defensive scheme's weakness?",
+        response="The defense has some vulnerabilities.",
         retrieved_contexts=[
-            "MT-302 covers torque for Frame #4200 assemblies."
+            "DEF-501: Defensive scheme with various coverage concepts."
         ],
     ),
 ]
@@ -403,27 +403,27 @@ before_samples = [
 # AFTER: Improved chunking + specific system prompt
 after_samples = [
     SingleTurnSample(
-        user_input="What is the maximum interpass temperature for welding?",
-        response="The maximum interpass temperature is 400 degrees F per WPS-201.",
+        user_input="What is the quarterback's arm strength?",
+        response="The quarterback's arm strength measures 62 mph per scouting report QB-101.",
         retrieved_contexts=[
-            "WPS-201: Interpass Temperature: 400F maximum. "
-            "Preheat: Not required for material under 1 inch thick."
+            "QB-101: Arm strength: 62 mph. Completes 68% of passes "
+            "with 2.3-second average release. Excels on intermediate routes."
         ],
     ),
     SingleTurnSample(
-        user_input="What form do I use for visual inspection?",
-        response="Use Form QC-107 for visual inspection. Record inspector badge number and date.",
+        user_input="What are the running back's weaknesses?",
+        response="The running back's primary weaknesses are pass protection and blitz pickup per RB-201.",
         retrieved_contexts=[
-            "Form QC-107: Visual/dimensional inspection. "
-            "Required fields: part number, lot number, inspector ID, date."
+            "RB-201: Weakness: pass protection and blitz pickup. "
+            "Explosive runner with 4.38 40-yard dash. 3.8 yards after contact."
         ],
     ),
     SingleTurnSample(
-        user_input="What's the torque pattern for Frame #4200?",
-        response="Use a star pattern per the torque map diagram, specification MT-302.",
+        user_input="What is the defensive scheme's weakness?",
+        response="The defense is vulnerable to crossing routes against zone coverage per DEF-501.",
         retrieved_contexts=[
-            "MT-302: Sequence: Star pattern per torque map diagram. "
-            "Tool: Calibrated torque wrench +/-2%."
+            "DEF-501: Cover-3 base with single-high safety. Press corners. "
+            "Weakness: crossing routes against zone."
         ],
     ),
 ]
@@ -463,7 +463,7 @@ print(f"  Faithfulness:     {f_delta:+.2f}")
 print(f"  Answer Relevancy: {r_delta:+.2f}")
 ```
 
-Now you can walk into a meeting and say: "After improving our chunking strategy and adding document-specific context, faithfulness improved from 0.45 to 0.92 and relevancy from 0.50 to 0.88."
+Now you can walk into a meeting and say: "After improving our chunking strategy and adding position-specific context, faithfulness improved from 0.45 to 0.92 and relevancy from 0.50 to 0.88."
 
 That is the data that gets projects approved and budgets allocated.
 
@@ -496,11 +496,11 @@ chroma_client = chromadb.Client()
 collection = chroma_client.create_collection(name="eval_test_kb")
 
 docs = [
-    {"id": "MT-302", "text": "Torque Specification MT-302: Frame #4200. M8=25-30Nm. M10=45-55Nm. M12=80-100Nm. Star pattern. Calibrated wrench +/-2%."},
-    {"id": "WPS-201", "text": "Weld Procedure WPS-201: GMAW carbon steel. ER70S-6 wire. 75/25 Ar/CO2 at 25-30 CFH. Interpass temp 400F max. Visual + UT per AWS D1.1."},
-    {"id": "QC-107", "text": "Inspection Form QC-107: Visual and dimensional inspection. Check surface finish, weld quality, hardware, paint. Fail = red HOLD tag + notify supervisor."},
-    {"id": "SAFE-001", "text": "LOTO Procedure: Notify operators. Normal shutdown. Isolate all energy. Personal lock and tag. Release stored energy. Verify zero energy. Only lock owner removes."},
-    {"id": "PPE-001", "text": "PPE Requirements: Safety glasses always in production. Hearing protection above 85dB. Steel-toe boots required. Welding: auto-dark helmet shade 10-13, leather gloves, FR clothing."},
+    {"id": "QB-101", "text": "QB-101: Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Excels on intermediate routes (15-25 yards). Reads defenses pre-snap. Arm strength: 62 mph. Weakness: locks onto first read under pressure."},
+    {"id": "RB-201", "text": "RB-201: Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection and blitz pickup."},
+    {"id": "WR-301", "text": "WR-301: Crisp route runner with elite separation. Full route tree, slot and outside. 4.42 speed, 38-inch vertical. 2.1% drop rate. Weakness: press coverage at the line."},
+    {"id": "OL-401", "text": "OL-401: Excellent pass protection anchor. Quick lateral movement. 34-inch arms. Run blocking: 82.5/100. 2 sacks in 580 snaps. Weakness: combo blocks."},
+    {"id": "DEF-501", "text": "DEF-501: Cover-3 base with single-high safety. Press corners. Pattern-match zone on 3rd down. Aggressive nickel blitz. Weakness: crossing routes against zone."},
 ]
 
 collection.add(
@@ -520,7 +520,7 @@ def rag_query(question):
         messages=[
             {
                 "role": "system",
-                "content": "Answer using ONLY the provided context. Be specific. Cite document IDs.",
+                "content": "Answer using ONLY the provided context. Be specific. Cite scouting report IDs.",
             },
             {
                 "role": "user",
@@ -539,11 +539,11 @@ def rag_query(question):
 
 ```python
 test_questions = [
-    "What torque do M10 bolts need on Frame #4200?",
-    "What shielding gas for MIG welding steel?",
-    "What happens when a part fails inspection?",
-    "Who can remove a lockout tag?",
-    "When is hearing protection required?",
+    "What is the quarterback's completion rate?",
+    "Who has the best pass protection?",
+    "What are the running back's weaknesses?",
+    "What is the wide receiver's drop rate?",
+    "What is the defensive scheme's base coverage?",
 ]
 
 print("=== Querying RAG Pipeline ===\n")
@@ -627,7 +627,7 @@ If something breaks after a Ragas update, check their docs at https://docs.ragas
 
 ## Takeaways
 
-1. **Faithfulness is your most critical metric** -- in manufacturing, hallucinated specs or procedures can cause real harm.
+1. **Faithfulness is your most critical metric** -- in football scouting, hallucinated stats or fabricated measurables can lead to costly draft mistakes.
 2. **Context precision tells you if retrieval is working** -- bad retrieval means bad answers regardless of how good your LLM is.
 3. **Reference-free metrics** (faithfulness, relevancy) work on production data without pre-labeled ground truth.
 4. **Before/after comparisons** are how you prove improvements to stakeholders with hard numbers.
