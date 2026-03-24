@@ -9,11 +9,11 @@ Answer the question every stakeholder will ask: **"How do we know the AI is doin
 
 Your boss walks into your office.
 
-> **Boss:** "So this AI thing you've been building for task descriptions... how do we know it's actually good?"
+> **Boss:** "So this AI thing you've been building for scouting reports... how do we know it's actually good?"
 >
 > **You (today):** "Uh, they look pretty good to me?"
 >
-> **You (after this module):** "We tested 50 task descriptions against our quality rubric. The AI scored 87% on format compliance, 92% on safety inclusion, and 78% on specificity. The main gap is referencing specific form numbers -- I'm adding more reference docs to close that gap."
+> **You (after this module):** "We tested 50 scouting reports against our quality rubric. The AI scored 87% on format compliance, 92% on stat inclusion, and 78% on specificity. The main gap is referencing specific comparable players -- I'm adding more reference docs to close that gap."
 
 Which person gets the project approved?
 
@@ -32,15 +32,15 @@ Open a Python shell or create a new file:
 ```python
 # 09-evaluation-fundamentals/step1_one_check.py
 
-good_task = """INSPECT WELDED JOINTS ON FRAME ASSEMBLY A
+good_report = """SCOUTING REPORT: QB PROSPECT – MARCUS ALLEN
 
-1. Verify lockout/tagout is complete on the welding station.
-2. Don required PPE: safety glasses, leather gloves, inspection magnifier.
-3. Inspect all weld joints visually per AWS D1.1 Section 6.
-4. Measure weld size with fillet gauge -- minimum 6mm leg per drawing SH-4402.
-5. Record findings on Form QC-107. Tag defective joints with red HOLD tag."""
+1. Pocket passer with elite accuracy, completing 68% of passes with a 2.3-second average release.
+2. Excels on intermediate routes (15-25 yards), consistently hitting tight windows.
+3. Reads defenses pre-snap and adjusts protection calls at the line.
+4. Arm strength measured at 62 mph at the combine.
+5. Weakness: locks onto first read under pressure, leading to forced throws."""
 
-bad_task = "Check the welds."
+bad_report = "He looks like a good quarterback."
 ```
 
 Run this:
@@ -52,73 +52,74 @@ def has_numbered_steps(text):
     steps = re.findall(r'^\s*\d+[\.\)]\s', text, re.MULTILINE)
     return len(steps)
 
-print(has_numbered_steps(good_task))  # What number do you see?
-print(has_numbered_steps(bad_task))   # And this one?
+print(has_numbered_steps(good_report))  # What number do you see?
+print(has_numbered_steps(bad_report))   # And this one?
 ```
 
 You should see `5` and `0`. That single function just told you something useful: one output has structure, the other doesn't. And it ran in microseconds. No LLM needed.
 
-### Step 2: Check for safety mentions
+### Step 2: Check for measurables
 
-Now let's add another check. In manufacturing, safety content is non-negotiable:
+Now let's add another check. In football scouting, measurables and stats are non-negotiable:
 
 ```python
-def count_safety_mentions(text):
-    safety_terms = [
-        "ppe", "safety", "glasses", "gloves", "helmet",
-        "lockout", "tagout", "caution", "warning", "hazard",
-        "protective", "fire watch"
+def count_measurable_mentions(text):
+    measurable_terms = [
+        "40-yard", "speed", "vertical", "arm strength",
+        "completion", "yards", "combine", "measurables",
+        "release", "dash", "broad jump", "shuttle"
     ]
     text_lower = text.lower()
-    return sum(1 for term in safety_terms if term in text_lower)
+    return sum(1 for term in measurable_terms if term in text_lower)
 
-print(count_safety_mentions(good_task))  # Try it
-print(count_safety_mentions(bad_task))   # And this
+print(count_measurable_mentions(good_report))  # Try it
+print(count_measurable_mentions(bad_report))   # And this
 ```
 
-The good task should score 4+ (lockout, tagout, PPE, glasses, gloves). The bad task? Zero. You now have two checks that cost nothing and run instantly.
+The good report should score 4+ (speed, arm strength, completion, release). The bad report? Zero. You now have two checks that cost nothing and run instantly.
 
 ### Step 3: Action verbs
 
-Manufacturing task descriptions should start steps with action verbs -- "inspect", "verify", "measure" -- not passive language like "should be checked":
+Scouting reports should use descriptive, analytical language -- "excels", "demonstrates", "projects" -- not vague language like "seems okay":
 
 ```python
 def count_action_verbs(text):
     verbs = [
-        "inspect", "verify", "check", "install", "remove",
-        "clean", "record", "document", "apply", "ensure",
-        "confirm", "test", "measure", "adjust", "replace",
-        "tighten", "calibrate", "don", "tag", "notify"
+        "excels", "demonstrates", "projects", "reads",
+        "completes", "runs", "catches", "blocks",
+        "covers", "tracks", "attacks", "diagnoses",
+        "exhibits", "displays", "measures", "ranks",
+        "adjusts", "anticipates", "delivers", "accelerates"
     ]
     text_lower = text.lower()
     return sum(1 for v in verbs if v in text_lower)
 
-print(count_action_verbs(good_task))
-print(count_action_verbs(bad_task))
+print(count_action_verbs(good_report))
+print(count_action_verbs(bad_report))
 ```
 
 Notice how each check is just a few lines. Nothing complicated. But together they start to paint a picture.
 
 ### Step 4: Specific references
 
-Real task descriptions cite form numbers, specs, and measurements. Vague ones don't:
+Real scouting reports cite stats, measurables, and comparable players. Vague ones don't:
 
 ```python
 def has_specific_references(text):
-    has_form_ref = bool(re.search(r'[A-Z]{2,}-\d{2,}', text))
+    has_player_ref = bool(re.search(r'[A-Z]{2,}-\d{2,}', text))
     has_measurement = bool(re.search(
-        r'\d+\.?\d*\s*(mm|cm|inch|"|Nm|PSI|degrees|CFH|RPM)', text
+        r'\d+\.?\d*\s*(mph|yards|%|inch|seconds|reps|"|vertical)', text
     ))
-    return has_form_ref, has_measurement
+    return has_player_ref, has_measurement
 
-form, meas = has_specific_references(good_task)
-print(f"Form numbers: {form}, Measurements: {meas}")
+form, meas = has_specific_references(good_report)
+print(f"Report IDs: {form}, Measurables: {meas}")
 
-form, meas = has_specific_references(bad_task)
-print(f"Form numbers: {form}, Measurements: {meas}")
+form, meas = has_specific_references(bad_report)
+print(f"Report IDs: {form}, Measurables: {meas}")
 ```
 
-The good task has both (QC-107, SH-4402, AWS D1.1, 6mm). The bad task has neither.
+The good report has measurables (68%, 2.3-second, 62 mph, 15-25 yards). The bad report has neither.
 
 ### Step 5: Combine them into a score
 
@@ -130,22 +131,22 @@ def heuristic_score(text):
         "has_numbered_steps": has_numbered_steps(text) >= 3,
         "appropriate_length": 30 <= len(text.split()) <= 200,
         "uses_action_verbs": count_action_verbs(text) >= 2,
-        "mentions_safety": count_safety_mentions(text) >= 1,
-        "has_form_numbers": has_specific_references(text)[0],
-        "has_measurements": has_specific_references(text)[1],
+        "mentions_measurables": count_measurable_mentions(text) >= 1,
+        "has_report_ids": has_specific_references(text)[0],
+        "has_stats": has_specific_references(text)[1],
     }
     score = sum(checks.values()) / len(checks)
     return checks, score
 
-checks, score = heuristic_score(good_task)
-print(f"Good task: {score:.0%}")
+checks, score = heuristic_score(good_report)
+print(f"Good report: {score:.0%}")
 for name, passed in checks.items():
     print(f"  {'PASS' if passed else 'FAIL'}: {name}")
 
 print()
 
-checks, score = heuristic_score(bad_task)
-print(f"Bad task: {score:.0%}")
+checks, score = heuristic_score(bad_report)
+print(f"Bad report: {score:.0%}")
 for name, passed in checks.items():
     print(f"  {'PASS' if passed else 'FAIL'}: {name}")
 ```
@@ -154,30 +155,30 @@ You should see something like 100% vs 0%. That's a clear signal, and it took zer
 
 ### Step 6: Test the middle ground
 
-What about a "mediocre" task description? Let's see if our scoring catches it:
+What about a "mediocre" scouting report? Let's see if our scoring catches it:
 
 ```python
-mediocre_task = """Weld Inspection
+mediocre_report = """Quarterback Evaluation
 
-Look at the welds and make sure they are good. Check for any problems.
-If something looks wrong, tell someone about it.
-Make sure to write it down when you're done."""
+He can throw pretty well and seems athletic. He has a decent arm.
+If he gets more experience, he could be good.
+Probably worth a look in the later rounds."""
 
-checks, score = heuristic_score(mediocre_task)
-print(f"Mediocre task: {score:.0%}")
+checks, score = heuristic_score(mediocre_report)
+print(f"Mediocre report: {score:.0%}")
 for name, passed in checks.items():
     print(f"  {'PASS' if passed else 'FAIL'}: {name}")
 ```
 
-Notice what happens: it passes on length and maybe action verbs (it has "check" and "inspect" synonyms), but fails on numbered steps, safety, and references. It correctly lands between good and bad.
+Notice what happens: it passes on length and maybe some verbs, but fails on numbered steps, measurables, and references. It correctly lands between good and bad.
 
-**Key insight:** Rules catch structure but they can NOT catch quality. "Inspect the weld. Tighten the bolt. Record the data." would pass every check, but it's still a terrible task description. We need something smarter.
+**Key insight:** Rules catch structure but they can NOT catch quality. "He runs fast. He catches well. He blocks okay." would pass some checks, but it's still a terrible scouting report. We need something smarter.
 
 ---
 
 ## Part 2: LLM-as-Judge
 
-The idea: use an LLM to evaluate another LLM's output. The judge LLM reads the task description and scores it, just like a human reviewer would -- but at machine speed.
+The idea: use an LLM to evaluate another LLM's output. The judge LLM reads the scouting report and scores it, just like a senior analyst would -- but at machine speed.
 
 ### Step 7: Score one thing -- clarity
 
@@ -200,9 +201,9 @@ def judge_clarity(text):
             {
                 "role": "system",
                 "content": (
-                    "You evaluate manufacturing task descriptions. "
+                    "You evaluate NFL scouting reports. "
                     "Score the CLARITY on a 0-10 scale. "
-                    "0 = confusing, 10 = crystal clear for any operator. "
+                    "0 = confusing, 10 = crystal clear for any scout or analyst. "
                     'Return JSON: {"clarity": <score>, "reason": "<why>"}'
                 ),
             },
@@ -214,43 +215,43 @@ def judge_clarity(text):
     return json.loads(response.choices[0].message.content)
 ```
 
-Try it on your good task:
+Try it on your good report:
 
 ```python
-result = judge_clarity(good_task)
+result = judge_clarity(good_report)
 print(f"Clarity: {result['clarity']}/10")
 print(f"Reason: {result['reason']}")
 ```
 
-Now the bad task:
+Now the bad report:
 
 ```python
-result = judge_clarity(bad_task)
+result = judge_clarity(bad_report)
 print(f"Clarity: {result['clarity']}/10")
 print(f"Reason: {result['reason']}")
 ```
 
-See the difference? The LLM can judge *meaning*, not just structure. It understands that "Check the welds" is vague in a way that regex never could.
+See the difference? The LLM can judge *meaning*, not just structure. It understands that "He looks like a good quarterback" is vague in a way that regex never could.
 
 ### Step 8: Add more criteria
 
 Now let's expand to a full rubric. Notice how we build on the same pattern:
 
 ```python
-JUDGE_PROMPT = """You evaluate manufacturing task descriptions.
+JUDGE_PROMPT = """You evaluate NFL scouting reports.
 Score on each criterion (0-10):
 
-1. CLARITY: Can any operator understand what to do?
-2. COMPLETENESS: Are all necessary steps included?
-3. SAFETY: Are relevant safety precautions mentioned?
-4. SPECIFICITY: Does it cite tools, specs, form numbers?
-5. PROFESSIONALISM: Does it read like a real manufacturing document?
+1. CLARITY: Can any scout or analyst understand the evaluation?
+2. COMPLETENESS: Are all key areas covered (strengths, weaknesses, measurables)?
+3. STAT_SUPPORT: Are claims backed by specific stats and measurables?
+4. SPECIFICITY: Does it cite measurables, game film details, comparable players?
+5. PROFESSIONALISM: Does it read like a real NFL scouting report?
 
 Return JSON:
 {
   "clarity": {"score": N, "reason": "..."},
   "completeness": {"score": N, "reason": "..."},
-  "safety": {"score": N, "reason": "..."},
+  "stat_support": {"score": N, "reason": "..."},
   "specificity": {"score": N, "reason": "..."},
   "professionalism": {"score": N, "reason": "..."},
   "overall": N
@@ -272,8 +273,8 @@ def judge_full(text):
 Run it:
 
 ```python
-result = judge_full(good_task)
-for criterion in ["clarity", "completeness", "safety", "specificity", "professionalism"]:
+result = judge_full(good_report)
+for criterion in ["clarity", "completeness", "stat_support", "specificity", "professionalism"]:
     entry = result.get(criterion, {})
     score = entry.get("score", "?")
     reason = entry.get("reason", "")
@@ -283,33 +284,33 @@ for criterion in ["clarity", "completeness", "safety", "specificity", "professio
 print(f"\n  Overall: {result.get('overall', '?')}/10")
 ```
 
-Now run the same thing on the mediocre task:
+Now run the same thing on the mediocre report:
 
 ```python
-result = judge_full(mediocre_task)
-for criterion in ["clarity", "completeness", "safety", "specificity", "professionalism"]:
+result = judge_full(mediocre_report)
+for criterion in ["clarity", "completeness", "stat_support", "specificity", "professionalism"]:
     entry = result.get(criterion, {})
     score = entry.get("score", "?")
     reason = entry.get("reason", "")
     print(f"  {criterion:15s}: {score}/10 -> {reason}")
 ```
 
-Compare the scores side by side. The LLM judge catches nuance that rules miss: it knows "tell someone about it" is unprofessional, and it knows the mediocre version omits critical safety steps.
+Compare the scores side by side. The LLM judge catches nuance that rules miss: it knows "seems athletic" is unprofessional, and it knows the mediocre version omits critical measurables and comparable player analysis.
 
 ### Step 9: Watch out for bias
 
 One gotcha -- LLM judges tend to prefer longer, more verbose outputs. Let's see:
 
 ```python
-verbose_but_bad = """COMPREHENSIVE WELDING INSPECTION PROCEDURE FOR QUALITY ASSURANCE
+verbose_but_bad = """COMPREHENSIVE NFL DRAFT PROSPECT EVALUATION REPORT
 
-1. Prior to commencing any inspection activities, it is imperative that the
-   designated inspection personnel verify and confirm that all applicable
-   lockout/tagout procedures have been properly and thoroughly executed.
-2. The inspection technician shall don all requisite personal protective
-   equipment including but not limited to safety glasses, leather gloves,
-   and inspection magnification devices.
-3. A comprehensive visual examination shall be conducted."""
+1. Prior to commencing any evaluation activities, it is imperative that the
+   designated scouting personnel verify and confirm that all applicable
+   game film has been properly and thoroughly reviewed and catalogued.
+2. The evaluation analyst shall document all requisite athletic
+   measurements including but not limited to forty-yard dash times, vertical
+   leap measurements, and broad jump distances.
+3. A comprehensive physical assessment shall be conducted."""
 
 result = judge_full(verbose_but_bad)
 print(f"Verbose-but-bad overall: {result.get('overall', '?')}/10")
@@ -335,15 +336,15 @@ llm = OpenAI(
     api_key="ollama",
 )
 
-COMPARE_PROMPT ="""You are comparing two manufacturing task descriptions.
-Which is BETTER for actual use on a manufacturing floor?
+COMPARE_PROMPT ="""You are comparing two NFL scouting reports for the same player.
+Which is BETTER for actual use by a front office or coaching staff?
 
 Consider:
-- Can an operator actually follow it?
-- Are safety requirements covered?
-- Are specific references included?
+- Can a scout or GM actually use it to make draft decisions?
+- Are measurables and stats included?
+- Are specific strengths and weaknesses identified?
 
-TASK: {task}
+PLAYER: {task}
 
 VERSION A:
 {version_a}
@@ -374,24 +375,23 @@ def compare_versions(task, version_a, version_b):
 Let's test it -- RAG-enhanced vs. plain LLM output:
 
 ```python
-task = "Replace worn conveyor belt rollers"
+task = "Evaluate RB prospect Jaylen Carter"
 
-version_a = """Replace Conveyor Belt Rollers
+version_a = """Scouting Report: RB Jaylen Carter
 
-1. Lock out conveyor system per LOTO procedure SOP-SAFE-001.
-2. Don PPE: safety glasses, leather gloves, steel-toe boots.
-3. Remove belt tension using take-up adjustment (manual Section 3.2).
-4. Remove worn rollers, inspect bearing seats for damage.
-5. Install new rollers (P/N CR-200 series), verify free rotation.
-6. Restore belt tension to 2-3% elongation per specification.
-7. Run conveyor empty for 5 minutes, check tracking and alignment.
-8. Document replacement on Form PM-105."""
+1. Explosive runner with 4.38 40-yard dash and elite acceleration through the hole.
+2. Exceptional vision -- finds cutback lanes and hits them decisively.
+3. Averaging 3.8 yards after contact, top-10 among draft-eligible backs.
+4. 45 receptions out of the backfield, showing reliable hands on check-downs.
+5. Weakness: pass protection needs significant work -- struggles with blitz pickup.
+6. Comparable players: early-career Alvin Kamara (receiving) with Kareem Hunt's power.
+7. Projection: late first to early second round. Day-one starter potential.
+8. Recommend: draft if available in Round 2, per draft board DB-2025."""
 
-version_b = """Change the old rollers on the conveyor belt.
+version_b = """He's a fast running back who runs hard.
 
-Turn off the conveyor first. Take out the bad rollers and put in
-new ones. Make sure the belt works when you turn it back on.
-Write down what you did."""
+He can catch the ball sometimes. He needs to get better at blocking.
+He would probably be a good pick at some point in the draft."""
 
 result = compare_versions(task, version_a, version_b)
 print(f"Winner: Version {result['winner']}")
@@ -399,7 +399,7 @@ print(f"Confidence: {result['confidence']}")
 print(f"Key difference: {result['key_difference']}")
 ```
 
-No surprise which wins. But notice the power here: you can use this to compare prompt versions, before/after RAG improvements, or different models on the same task. This is how you PROVE that a change is an improvement, not just a change.
+No surprise which wins. But notice the power here: you can use this to compare prompt versions, before/after RAG improvements, or different models on the same player. This is how you PROVE that a change is an improvement, not just a change.
 
 ### Step 11: What happens if you swap A and B?
 
@@ -428,7 +428,7 @@ import json
 import re
 
 
-class TaskDescriptionEvaluator:
+class ScoutingReportEvaluator:
     """Combined heuristic + LLM evaluation pipeline."""
 
     def __init__(self, model="gemma3:12b"):
@@ -445,14 +445,14 @@ class TaskDescriptionEvaluator:
                 re.findall(r'^\s*\d+[\.\)]', text, re.MULTILINE)
             ) >= 3,
             "word_count_ok": 30 <= len(text.split()) <= 200,
-            "has_safety_mention": any(
+            "has_measurables": any(
                 w in text.lower()
-                for w in ["ppe", "safety", "lockout", "gloves", "glasses"]
+                for w in ["40-yard", "speed", "vertical", "arm strength", "combine"]
             ),
             "has_specific_refs": bool(
                 re.search(r'[A-Z]{2,}-\d{2,}', text)
             ),
-            "uses_active_voice": sum(
+            "mostly_active_voice": sum(
                 1 for p in ["should be", "is to be", "must be done"]
                 if p in text.lower()
             ) <= 1,
@@ -468,8 +468,8 @@ class TaskDescriptionEvaluator:
                 {
                     "role": "system",
                     "content": (
-                        "Rate this manufacturing task description 0-10 on: "
-                        "clarity, completeness, safety, specificity, "
+                        "Rate this NFL scouting report 0-10 on: "
+                        "clarity, completeness, stat_support, specificity, "
                         "professionalism. Return JSON with those keys "
                         "and an 'overall' key."
                     ),
@@ -507,24 +507,24 @@ class TaskDescriptionEvaluator:
 ### Step 13: Run it
 
 ```python
-evaluator = TaskDescriptionEvaluator()
+evaluator = ScoutingReportEvaluator()
 
 test_cases = [
-    """CALIBRATE DIGITAL PRESSURE GAUGE
+    """SCOUTING REPORT: OL PROSPECT – DAVID THOMPSON
 
-1. Ensure gauge is depressurized and at ambient temperature.
-2. Connect gauge to calibration standard (NIST-traceable, +/-0.1%).
-3. Apply test pressures at 0%, 25%, 50%, 75%, and 100% of range.
-4. Record readings on Calibration Form CAL-201. Tolerance: +/-0.5%.
-5. If out of tolerance, adjust per manufacturer instructions, re-test.
-6. Apply calibration sticker with date and next-due date.""",
+1. Excellent pass protection anchor with quick lateral movement and 34-inch arms.
+2. Run blocking grade: 82.5/100 per PFF, excels at drive blocks and reach blocks.
+3. Allowed only 2 sacks in 580 pass-blocking snaps last season.
+4. Shows elite football IQ, rarely makes assignment errors per film review SR-4401.
+5. Weakness: struggles with combo blocks at the second level.
+6. Projection: Round 1-2, immediate starter at guard or right tackle.""",
 
-    "Check the pressure gauge. Make sure it reads right. Fix it if not.",
+    "He's a big guy who blocks well. Probably a good lineman.",
 ]
 
 for i, desc in enumerate(test_cases):
     print(f"{'=' * 50}")
-    print(f"Description {i + 1}:")
+    print(f"Report {i + 1}:")
     result = evaluator.evaluate(desc)
     print(f"  Heuristic: {result['heuristic']['score']:.0%}")
     print(f"  LLM:       {result['llm'].get('overall', 'N/A')}")
@@ -532,27 +532,27 @@ for i, desc in enumerate(test_cases):
     print()
 ```
 
-### Step 14: Now imagine running this on 50 task descriptions
+### Step 14: Now imagine running this on 50 scouting reports
 
 That's evaluation at scale:
 
 ```python
 # Simulate batch evaluation
-tasks_to_evaluate = [
-    "Inspect incoming steel plate for surface defects per QC-101.",
-    "Set up CNC mill for aluminum housing per drawing HG-2200-Rev.C.",
-    "Perform daily forklift safety checklist per OSHA standard.",
+reports_to_evaluate = [
+    "Pocket passer with elite accuracy, 68% completion rate per report QB-101.",
+    "Explosive runner with 4.38 40-yard dash, exceptional vision per RB-201.",
+    "Crisp route runner with 4.42 speed, 38-inch vertical per WR-301.",
     # In reality, you'd load these from your RAG pipeline output
 ]
 
 print("=== Batch Evaluation Summary ===\n")
 scores = []
-for task in tasks_to_evaluate:
+for report in reports_to_evaluate:
     # Use just heuristic for speed in batch mode
-    result = evaluator.heuristic_score(task)
+    result = evaluator.heuristic_score(report)
     scores.append(result["score"])
     status = "PASS" if result["score"] >= 0.6 else "FAIL"
-    print(f"  [{status}] {result['score']:.0%} - {task[:50]}...")
+    print(f"  [{status}] {result['score']:.0%} - {report[:50]}...")
 
 avg = sum(scores) / len(scores)
 print(f"\nAverage score: {avg:.0%}")
@@ -573,7 +573,7 @@ Evaluation Toolbox
 
 Layer 1: Heuristic (FREE, INSTANT)
   - Numbered steps? Format right?
-  - Safety terms present?
+  - Measurables and stats present?
   - Specific references included?
   -> Use for: every single output, gating bad ones early
 
@@ -593,7 +593,7 @@ Combined Pipeline:
 
 Now you can answer your boss:
 
-> "We tested 50 task descriptions against our quality rubric. The AI scored 87% on format compliance and 92% on safety inclusion. The main gap is referencing specific form numbers -- I'm adding more reference documents to improve that."
+> "We tested 50 scouting reports against our quality rubric. The AI scored 87% on format compliance and 92% on stat inclusion. The main gap is referencing comparable players -- I'm adding more reference documents to improve that."
 
 That's not a vibe. That's data.
 

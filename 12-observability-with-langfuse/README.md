@@ -7,11 +7,11 @@ Set up Langfuse -- the open-source alternative to Galileo -- to see everything y
 
 ## Why Observability?
 
-Think about it this way. You have a CNC machine on your floor. It has gauges, readouts, alarm lights. You can see spindle speed, feed rate, coolant temp, tool wear -- all in real time. You would never run that machine blind.
+Think about it this way. You are an NFL scout watching game film. You have your stopwatch, your laser for the 40, your GPS tracking data. You can see snap counts, release times, route depths -- all tracked and measured. You would never evaluate a prospect blind.
 
 But right now, your LLM pipeline? It is a black box. Something goes in, something comes out. If the output is bad, you have no idea where it went wrong. Was it the retrieval? The prompt? The model having a bad day?
 
-Langfuse is the dashboard for your LLM system. It gives you the gauges.
+Langfuse is the analytics dashboard for your LLM system. It gives you the measurables.
 
 ---
 
@@ -22,7 +22,7 @@ You have two options. Pick whichever works for you.
 ### Option A: Langfuse Cloud (quickest -- 2 minutes)
 
 1. Go to https://cloud.langfuse.com and sign up (free tier, no credit card)
-2. Create a new project -- call it something like "manufacturing-rag"
+2. Create a new project -- call it something like "football-scouting-rag"
 3. Go to Settings > API Keys and create a key pair
 
 You will get two keys. Add them to your `.env`:
@@ -107,11 +107,11 @@ That is the setup. Now let's write one function and decorate it:
 ```python
 @observe()
 def describe_task(task_name: str) -> str:
-    """Generate a short task description."""
+    """Generate a short scouting report."""
     response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
-            {"role": "system", "content": "Write a 2-sentence manufacturing task description."},
+            {"role": "system", "content": "Write a 2-sentence NFL scouting evaluation."},
             {"role": "user", "content": task_name},
         ],
         temperature=0.0,
@@ -124,7 +124,7 @@ That is it. The `@observe()` decorator tells Langfuse: "trace this function -- c
 Now call it:
 
 ```python
-result = describe_task("Torque check on Frame #4200 bolts")
+result = describe_task("Who has the strongest arm?")
 print(result)
 ```
 
@@ -134,7 +134,7 @@ Run the file. You will see the LLM output in your terminal like normal. But now 
 
 That is your function call. Click on it. You will see:
 - The function name (`describe_task`)
-- The input (`"Torque check on Frame #4200 bolts"`)
+- The input (`"Who has the strongest arm?"`)
 - The output (the full generated text)
 - How long it took
 - A timestamp
@@ -145,9 +145,9 @@ Let's call it a few more times so you have more data to look at:
 
 ```python
 tasks = [
-    "Inspect weld joints on Assembly A",
-    "Replace hydraulic seals on 200-ton press",
-    "Calibrate digital caliper per SOP-CAL-003",
+    "Best pass protector on the draft board?",
+    "Who is the best route runner available?",
+    "Third down defensive tendencies?",
 ]
 
 for task in tasks:
@@ -176,11 +176,11 @@ llm = OpenAI(
 
 @observe()
 def describe_task(task_name: str) -> str:
-    """Generate a short task description."""
+    """Generate a short scouting report."""
     response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
-            {"role": "system", "content": "Write a 2-sentence manufacturing task description."},
+            {"role": "system", "content": "Write a 2-sentence NFL scouting evaluation."},
             {"role": "user", "content": task_name},
         ],
         temperature=0.0,
@@ -189,14 +189,14 @@ def describe_task(task_name: str) -> str:
 
 
 # Try it once
-result = describe_task("Torque check on Frame #4200 bolts")
+result = describe_task("Who has the strongest arm?")
 print(result)
 
 # Now a few more
 tasks = [
-    "Inspect weld joints on Assembly A",
-    "Replace hydraulic seals on 200-ton press",
-    "Calibrate digital caliper per SOP-CAL-003",
+    "Best pass protector on the draft board?",
+    "Who is the best route runner available?",
+    "Third down defensive tendencies?",
 ]
 
 for task in tasks:
@@ -237,11 +237,11 @@ llm = OpenAI(
 chroma_client = chromadb.Client()
 collection = chroma_client.create_collection(name="traced_kb")
 collection.add(
-    ids=["MT-302", "QC-107", "WPS-201"],
+    ids=["QB-101", "RB-201", "WR-301"],
     documents=[
-        "Torque Spec MT-302: M8=25-30Nm, M10=45-55Nm for Frame #4200",
-        "Form QC-107: Visual inspection checklist, requires inspector badge and date",
-        "WPS-201: GMAW welding, 75/25 Ar/CO2, interpass temp 400F max",
+        "QB-101: Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Excels on intermediate routes (15-25 yards). Reads defenses pre-snap. Arm strength: 62 mph. Weakness: locks onto first read under pressure.",
+        "RB-201: Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection and blitz pickup.",
+        "WR-301: Crisp route runner with elite separation. Full route tree, slot and outside. 4.42 speed, 38-inch vertical. 2.1% drop rate. Weakness: press coverage at the line.",
     ],
 )
 ```
@@ -309,9 +309,9 @@ Run some queries:
 
 ```python
 questions = [
-    "What is the torque spec for M10 bolts?",
-    "What form do I use for visual inspection?",
-    "What is the maximum interpass temperature for welding?",
+    "Who has the strongest arm among the prospects?",
+    "Which player is the best route runner?",
+    "What are the running back's weaknesses?",
 ]
 
 for q in questions:
@@ -334,13 +334,13 @@ rag_query (total: 2.1s)
   +-- evaluate_answer (0.01s)
 ```
 
-Notice how generation dominates the time? That is the kind of insight you get for free. On a factory floor, this is like seeing which station in your production line is the bottleneck.
+Notice how generation dominates the time? That is the kind of insight you get for free. In scouting terms, this is like seeing which phase of your evaluation process is the bottleneck -- film review, combine data lookup, or writing the final report.
 
 ---
 
 ## Exercise 3: Prompt Management
 
-Here is a real-world scenario. Your team has been tweaking the system prompt for weeks. Someone changes it, quality drops, nobody knows what the prompt was last Tuesday. Sound familiar? It is the manufacturing equivalent of someone adjusting machine settings without logging it.
+Here is a real-world scenario. Your team has been tweaking the system prompt for weeks. Someone changes it, quality drops, nobody knows what the prompt was last Tuesday. Sound familiar? It is the scouting equivalent of someone changing the grading rubric mid-draft season without telling anybody.
 
 Langfuse lets you store and version prompts in the dashboard, then fetch them in code. The prompt lives in Langfuse, not in your Python file.
 
@@ -366,23 +366,23 @@ First, let's create a prompt in Langfuse:
 
 ```python
 langfuse.create_prompt(
-    name="task-description-generator",
-    prompt="""You are a manufacturing technical writer for an ISO 9001 facility.
+    name="scouting-report-generator",
+    prompt="""You are an NFL draft analyst generating scouting evaluations.
 
-Write a task description for: {{task_name}}
+Write a scouting report for: {{task_name}}
 Context: {{context}}
 
 Rules:
-- 3-5 numbered steps starting with action verbs
-- Include PPE/safety requirements
-- Reference specific forms and specs
+- 3-5 key evaluation points starting with action verbs
+- Include combine measurables and game stats
+- Reference specific plays, games, and film
 - Active voice, 50-100 words""",
     labels=["production"],
 )
 print("Prompt created in Langfuse.")
 ```
 
-Run that once. Now go to your Langfuse dashboard and look under Prompts. You will see "task-description-generator" with version 1 and the label "production."
+Run that once. Now go to your Langfuse dashboard and look under Prompts. You will see "scouting-report-generator" with version 1 and the label "production."
 
 Now let's use it in code:
 
@@ -391,7 +391,7 @@ Now let's use it in code:
 def generate_from_managed_prompt(task_name: str, context: str) -> str:
     """Fetch the prompt from Langfuse and use it."""
     # Fetch the production version of the prompt
-    prompt = langfuse.get_prompt("task-description-generator", label="production")
+    prompt = langfuse.get_prompt("scouting-report-generator", label="production")
 
     # Compile it -- this fills in the {{variables}}
     compiled = prompt.compile(task_name=task_name, context=context)
@@ -405,8 +405,8 @@ def generate_from_managed_prompt(task_name: str, context: str) -> str:
 
 
 result = generate_from_managed_prompt(
-    task_name="Inspect weld joints on Frame Assembly A",
-    context="AWS D1.1, Form QC-107, fillet gauge required",
+    task_name="Evaluate QB prospect arm strength and accuracy",
+    context="QB-101 scouting report, 62 mph arm, 68% completion rate, 2.3s release",
 )
 print(result)
 ```
@@ -418,15 +418,15 @@ print(result)
 3. A/B test prompt versions
 4. Roll back instantly if a new prompt tanks quality
 
-It is like having a controlled recipe book for your LLM. Nobody can secretly tweak the recipe without it being logged.
+It is like having a controlled scouting rubric for your LLM. Nobody can secretly tweak the evaluation criteria without it being logged.
 
-Try changing the prompt in the Langfuse UI (add "Include lockout/tagout where applicable" to the rules). Then re-run the code. The new prompt gets fetched automatically.
+Try changing the prompt in the Langfuse UI (add "Include injury history where applicable" to the rules). Then re-run the code. The new prompt gets fetched automatically.
 
 ---
 
 ## Exercise 4: Adding Quality Scores to Traces
 
-You are generating task descriptions and tracing them. But are they any good? Let's attach quality scores directly to traces so you can track quality over time.
+You are generating scouting reports and tracing them. But are they any good? Let's attach quality scores directly to traces so you can track quality over time.
 
 ```python
 # 12-observability-with-langfuse/ex4_quality_scores.py
@@ -448,14 +448,14 @@ llm = OpenAI(
 First, a scoring function:
 
 ```python
-def score_task_description(text: str) -> dict:
-    """Score a task description on key quality dimensions."""
+def score_scouting_report(text: str) -> dict:
+    """Score a scouting report on key quality dimensions."""
     scores = {}
-    scores["has_numbered_steps"] = len(re.findall(r'^\s*\d+[\.\)]', text, re.MULTILINE)) >= 3
-    scores["has_safety"] = any(w in text.lower() for w in ["ppe", "safety", "lockout", "gloves", "helmet"])
+    scores["has_stats"] = bool(re.search(r'\d+\.?\d*\s*(%|mph|yard|speed|vertical|dash)', text, re.IGNORECASE))
+    scores["has_measurables"] = any(w in text.lower() for w in ["40-yard", "vertical", "arm strength", "speed", "release"])
     scores["has_references"] = bool(re.search(r'[A-Z]{2,}-\d{2,}', text))
     scores["good_length"] = 30 <= len(text.split()) <= 150
-    scores["starts_with_verb"] = bool(re.search(r'^\s*\d+[\.\)]\s*[A-Z][a-z]+\b', text, re.MULTILINE))
+    scores["has_evaluation"] = any(w in text.lower() for w in ["weakness", "strength", "excels", "elite", "projects"])
     scores["overall"] = sum(scores.values()) / len(scores)
     return scores
 ```
@@ -465,19 +465,19 @@ Now, here is the key part. Inside an `@observe()` function, you can use `langfus
 ```python
 @observe()
 def generate_and_score(task_name: str) -> dict:
-    """Generate a task description and score it."""
+    """Generate a scouting report and score it."""
     response = llm.chat.completions.create(
         model="gemma3:12b",
         messages=[
-            {"role": "system", "content": "Write a manufacturing task description with numbered steps, safety notes, and spec references."},
-            {"role": "user", "content": f"Task: {task_name}"},
+            {"role": "system", "content": "Write an NFL scouting report with measurables, game stats, and prospect evaluation."},
+            {"role": "user", "content": f"Prospect: {task_name}"},
         ],
         temperature=0.0,
     )
     answer = response.choices[0].message.content
 
     # Score it
-    scores = score_task_description(answer)
+    scores = score_scouting_report(answer)
 
     # Attach scores to the current trace in Langfuse
     for name, value in scores.items():
@@ -493,11 +493,11 @@ Let's run it on several tasks:
 
 ```python
 tasks = [
-    "Inspect weld joints on Frame A",
-    "Set up CNC for shaft machining",
-    "Perform daily forklift inspection",
-    "Calibrate pressure gauge",
-    "Replace conveyor belt rollers",
+    "Pocket passer QB with 62 mph arm strength",
+    "Explosive RB with 4.38 40-yard dash",
+    "Route runner WR with 4.42 speed",
+    "Pass-protecting OL with 34-inch arms",
+    "Cover-3 defense with press corners",
 ]
 
 print("=== Generating and Scoring ===\n")
@@ -516,13 +516,13 @@ print("--- You can filter traces by score value. ---")
 print("--- Find the ones that failed and see why. ---")
 ```
 
-**Now imagine this running for a week.** Every time your system generates a task description, the score gets logged. In Langfuse you can:
+**Now imagine this running for a week.** Every time your system generates a scouting report, the score gets logged. In Langfuse you can:
 
 - See quality trending over time (is it getting better or worse?)
 - Filter to just the low-scoring outputs (what went wrong?)
 - Correlate quality drops with prompt changes (did someone break something?)
 
-This is your SPC chart for LLM output quality. Just like statistical process control catches a CNC machine drifting out of tolerance, Langfuse catches your LLM drifting out of quality specs.
+This is your analytics dashboard for LLM output quality. Just like a front office tracks prospect grades throughout draft season to catch evaluation drift, Langfuse catches your LLM drifting out of quality specs.
 
 ---
 
@@ -553,13 +553,13 @@ llm = OpenAI(
 chroma_client = chromadb.Client()
 collection = chroma_client.create_collection(name="monitored_kb")
 collection.add(
-    ids=["MT-302", "QC-107", "WPS-201", "SOP-FL-001", "CAL-003"],
+    ids=["QB-101", "RB-201", "WR-301", "OL-401", "DEF-501"],
     documents=[
-        "Torque Spec MT-302: M8=25-30Nm, M10=45-55Nm for Frame #4200",
-        "Form QC-107: Visual inspection checklist, requires inspector badge and date",
-        "WPS-201: GMAW welding, 75/25 Ar/CO2, interpass temp 400F max",
-        "SOP-FL-001: Daily forklift inspection, check tires/horn/lights/brakes before each shift",
-        "CAL-003: Caliper calibration using NIST-traceable gauge blocks at 0.5/1.0/2.0/4.0 inches",
+        "QB-101: Pocket passer with elite accuracy. Completes 68% of passes with 2.3-second average release. Excels on intermediate routes (15-25 yards). Reads defenses pre-snap. Arm strength: 62 mph. Weakness: locks onto first read under pressure.",
+        "RB-201: Explosive runner with 4.38 40-yard dash. Exceptional vision, finds cutback lanes. 3.8 yards after contact. 45 receptions out of backfield. Weakness: pass protection and blitz pickup.",
+        "WR-301: Crisp route runner with elite separation. Full route tree, slot and outside. 4.42 speed, 38-inch vertical. 2.1% drop rate. Weakness: press coverage at the line.",
+        "OL-401: Excellent pass protection anchor. Quick lateral movement. 34-inch arms. Run blocking: 82.5/100. 2 sacks in 580 snaps. Weakness: combo blocks.",
+        "DEF-501: Cover-3 base with single-high safety. Press corners. Pattern-match zone on 3rd down. Aggressive nickel blitz. Weakness: crossing routes against zone.",
     ],
 )
 
@@ -581,10 +581,10 @@ def generate(question: str, context_docs: list) -> str:
     """Generate answer from context."""
     # Try to fetch managed prompt, fall back to local
     try:
-        prompt_obj = langfuse.get_prompt("task-description-generator", label="production")
-        system_msg = "You are a manufacturing technical writer. Answer using only the provided context."
+        prompt_obj = langfuse.get_prompt("scouting-report-generator", label="production")
+        system_msg = "You are an NFL draft analyst. Answer using only the provided context."
     except Exception:
-        system_msg = "You are a manufacturing technical writer. Answer using only the provided context."
+        system_msg = "You are an NFL draft analyst. Answer using only the provided context."
 
     context_str = "\n".join(context_docs)
     response = llm.chat.completions.create(
@@ -602,8 +602,8 @@ def generate(question: str, context_docs: list) -> str:
 def evaluate(answer: str, source_ids: list) -> dict:
     """Evaluate the answer quality."""
     scores = {
-        "has_steps": len(re.findall(r'^\s*\d+[\.\)]', answer, re.MULTILINE)) >= 2,
-        "has_safety": any(w in answer.lower() for w in ["ppe", "safety", "lockout", "gloves"]),
+        "has_stats": bool(re.search(r'\d+\.?\d*\s*(%|mph|yard|speed|vertical|dash)', answer, re.IGNORECASE)),
+        "has_measurables": any(w in answer.lower() for w in ["40-yard", "vertical", "arm strength", "speed", "release"]),
         "has_refs": bool(re.search(r'[A-Z]{2,}-\d{2,}', answer)),
         "cites_source": any(sid in answer for sid in source_ids),
         "good_length": 20 <= len(answer.split()) <= 200,
@@ -652,11 +652,11 @@ def monitored_rag_query(question: str) -> dict:
 # --- Run It ---
 
 questions = [
-    "What is the torque spec for M10 bolts on Frame #4200?",
-    "What do I need for a visual inspection?",
-    "What gas mix does WPS-201 require for GMAW welding?",
-    "How do I do a daily forklift inspection?",
-    "What gauge blocks do I need for caliper calibration?",
+    "What is the QB's completion percentage and arm strength?",
+    "Who is the best route runner and what's his drop rate?",
+    "What are the running back's combine measurables?",
+    "How does the offensive lineman grade in pass protection?",
+    "What is the defensive scheme and what are its weaknesses?",
 ]
 
 print("=== Monitored RAG Pipeline ===\n")
@@ -684,8 +684,8 @@ print("5. Check the metadata tab -- see model version and source IDs")
 1. **Langfuse is your open-source Galileo** -- free, self-hosted, full tracing and scoring
 2. **The `@observe()` decorator is all you need** -- one line per function, Langfuse handles the rest
 3. **Nested `@observe()` functions create span trees** -- see exactly where time is spent
-4. **Prompt management** means prompt changes are tracked and reversible, just like version-controlled machine settings
-5. **Quality scores on traces** let you build an SPC chart for your LLM -- catch drift before it becomes a problem
+4. **Prompt management** means prompt changes are tracked and reversible, just like version-controlled scouting rubrics
+5. **Quality scores on traces** let you build an analytics dashboard for your LLM -- catch evaluation drift before it becomes a problem
 
 ## What's Next
 

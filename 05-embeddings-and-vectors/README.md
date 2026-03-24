@@ -2,7 +2,7 @@
 
 ## What You'll Learn
 
-How computers understand the *meaning* of text, not just the letters. By the end, you'll have a searchable database of manufacturing documents that finds results by what they mean, not just what words they contain.
+How computers understand the *meaning* of text, not just the letters. By the end, you'll have a searchable database of NFL scouting reports that finds results by what they mean, not just what words they contain.
 
 **Time:** ~75 minutes of hands-on work
 
@@ -59,11 +59,11 @@ Let's embed two sentences that mean the same thing but use different words:
 def embed(text):
     return llm.embeddings.create(model="nomic-embed-text", input=text).data[0].embedding
 
-a = embed("Inspect the weld joints for cracks")
-b = embed("Check welding quality for defects")
+a = embed("Elite pocket passer with a quick release")
+b = embed("Accurate quarterback who gets the ball out fast")
 ```
 
-These sentences mean almost the same thing, right? An experienced welder would tell you they're describing the same task. Let's see if the numbers agree.
+These sentences mean almost the same thing, right? Any football scout would tell you they're describing the same trait. Let's see if the numbers agree.
 
 We need a way to compare two lists of numbers. The standard method is called *cosine similarity*:
 
@@ -86,26 +86,26 @@ What did you get? Probably something around 0.8 or higher. High similarity -- th
 Now let's try something completely unrelated:
 
 ```python
-c = embed("Order new office supplies for the break room")
+c = embed("Season ticket pricing and stadium parking availability")
 print(cosine_sim(a, c))
 ```
 
-Much lower -- maybe 0.2 or 0.3. The model knows "inspecting welds" has nothing to do with "ordering office supplies."
+Much lower -- maybe 0.2 or 0.3. The model knows "elite pocket passer" has nothing to do with "season ticket pricing."
 
 ---
 
-## Part 3: A Manufacturing Similarity Experiment
+## Part 3: A Football Scouting Similarity Experiment
 
 Let's play a guessing game. Before you run each comparison, predict: will it be high (>0.7), medium (0.4-0.7), or low (<0.4)?
 
 ```python
 sentences = {
-    "weld_inspect": "Inspect weld joints for cracks and porosity",
-    "weld_quality": "Check welding quality and structural integrity",
-    "torque_check": "Verify the torque on all fastener assemblies",
-    "office":       "Order new office supplies for the break room",
-    "calibrate":    "Calibrate the digital pressure gauge monthly",
-    "cal_rephrase": "The pressure measurement device needs regular calibration",
+    "qb_accuracy": "Quarterback with elite accuracy on intermediate throws",
+    "qb_precision": "Passer who delivers the ball with pinpoint precision downfield",
+    "rb_vision": "Running back with exceptional vision and patience at the line",
+    "unrelated": "Season ticket pricing and stadium parking availability",
+    "wr_speed": "Wide receiver with 4.3 speed and deep threat ability",
+    "wr_fast": "Speedy pass catcher who stretches the field vertically",
 }
 
 vecs = {name: embed(text) for name, text in sentences.items()}
@@ -113,39 +113,39 @@ vecs = {name: embed(text) for name, text in sentences.items()}
 
 Now compare these pairs. Predict first, then check:
 
-**Pair 1:** "Inspect weld joints" vs "Check welding quality"
+**Pair 1:** "QB accuracy" vs "QB precision"
 
 What's your prediction? ____
 
 ```python
-print(f"weld_inspect vs weld_quality: {cosine_sim(vecs['weld_inspect'], vecs['weld_quality']):.3f}")
+print(f"qb_accuracy vs qb_precision: {cosine_sim(vecs['qb_accuracy'], vecs['qb_precision']):.3f}")
 ```
 
-**Pair 2:** "Inspect weld joints" vs "Order office supplies"
+**Pair 2:** "QB accuracy" vs "Unrelated"
 
 Your prediction? ____
 
 ```python
-print(f"weld_inspect vs office: {cosine_sim(vecs['weld_inspect'], vecs['office']):.3f}")
+print(f"qb_accuracy vs unrelated: {cosine_sim(vecs['qb_accuracy'], vecs['unrelated']):.3f}")
 ```
 
-**Pair 3:** "Calibrate pressure gauge" vs "Pressure device needs calibration"
+**Pair 3:** "WR speed" vs "WR fast"
 
 Your prediction? ____
 
 ```python
-print(f"calibrate vs cal_rephrase: {cosine_sim(vecs['calibrate'], vecs['cal_rephrase']):.3f}")
+print(f"wr_speed vs wr_fast: {cosine_sim(vecs['wr_speed'], vecs['wr_fast']):.3f}")
 ```
 
-**Pair 4:** "Torque on fasteners" vs "Calibrate pressure gauge"
+**Pair 4:** "RB vision" vs "WR speed"
 
-This is the tricky one -- both are measurement/QC-related, but different tasks. Your prediction? ____
+This is the tricky one -- both are player evaluations, but different positions and skills. Your prediction? ____
 
 ```python
-print(f"torque_check vs calibrate: {cosine_sim(vecs['torque_check'], vecs['calibrate']):.3f}")
+print(f"rb_vision vs wr_speed: {cosine_sim(vecs['rb_vision'], vecs['wr_speed']):.3f}")
 ```
 
-Notice how the model captures nuance. The welding sentences are very similar. The calibration sentences (different wording, same meaning) are very similar. The torque and calibration sentences are somewhat related (both are measurement tasks) but not as close. And office supplies is far from everything else.
+Notice how the model captures nuance. The QB sentences are very similar. The WR sentences (different wording, same meaning) are very similar. The RB and WR sentences are somewhat related (both are player evaluations) but not as close. And season tickets are far from everything else.
 
 **This is how semantic search works.** Instead of matching keywords, you match meaning.
 
@@ -153,30 +153,30 @@ Notice how the model captures nuance. The welding sentences are very similar. Th
 
 ## Part 4: Why This Beats Keyword Search
 
-Here's a concrete example. Imagine you have a document about "TIG welding aluminum" and someone searches for "how to weld aluminum parts."
+Here's a concrete example. Imagine you have a scouting report about a QB's arm talent and someone searches for "who's a good deep ball passer."
 
 With keyword search (Ctrl+F):
-- Search for "how to weld aluminum parts" -- no exact match
-- Search for "weld" -- matches, but also matches "weld spatter cleanup" and "weld inspection"
-- Search for "aluminum" -- matches, but also matches "aluminum storage rack inventory"
+- Search for "who's a good deep ball passer" -- no exact match
+- Search for "passer" -- matches, but also matches "pass catcher" and "pass protection"
+- Search for "deep" -- matches, but also matches "deep threat" in a WR report
 
 With embedding search:
 ```python
-doc = embed("TIG welding aluminum requires argon shielding gas at 15-20 CFH")
-query = embed("how to weld aluminum parts")
+doc = embed("Pocket passer with elite accuracy. Completes 68% of passes with a 2.3-second average release time. Excels on intermediate routes (15-25 yards) with anticipation throws.")
+query = embed("who's a good deep ball passer")
 print(f"Similarity: {cosine_sim(doc, query):.3f}")
 ```
 
-High similarity. The search understands that the question is about the welding document, even though the exact phrase never appears.
+High similarity. The search understands that the question is about the QB scouting report, even though the exact phrase never appears.
 
 Try another:
 
 ```python
-doc2 = embed("Forklift daily inspection: check tires, test horn and lights")
-print(f"Forklift doc vs welding query: {cosine_sim(doc2, query):.3f}")
+doc2 = embed("Explosive runner with 4.38 40-yard dash. Exceptional vision through traffic and finds cutback lanes consistently.")
+print(f"RB doc vs QB query: {cosine_sim(doc2, query):.3f}")
 ```
 
-Low similarity. It knows the forklift document is irrelevant to a welding question.
+Low similarity. It knows the running back report is irrelevant to a passing question.
 
 ---
 
@@ -194,19 +194,19 @@ client = chromadb.Client()
 
 That's it. No server to install, no configuration. It's running in memory.
 
-Now create a "collection" -- think of it like a table in a regular database, but for embeddings:
+Now create a "collection" -- think of it like building your team's film library, but for scouting report embeddings:
 
 ```python
-collection = client.create_collection(name="manufacturing_docs")
+collection = client.create_collection(name="scouting_reports")
 ```
 
 Let's add our first document:
 
 ```python
 collection.add(
-    ids=["sop-001"],
-    documents=["TIG welding aluminum requires argon shielding gas at 15-20 CFH flow rate. Clean the base metal with acetone and a stainless steel brush before welding. Preheat thick sections to 300 degrees F."],
-    metadatas=[{"department": "welding", "type": "SOP"}],
+    ids=["QB-101"],
+    documents=["Pocket passer with elite accuracy. Completes 68% of passes with a 2.3-second average release time. Excels on intermediate routes (15-25 yards) with anticipation throws. Reads defenses pre-snap and adjusts protection. Arm strength measured at 62 mph at the combine. Weakness: locks onto first read under heavy pressure."],
+    metadatas=[{"position": "QB", "report_type": "scouting"}],
 )
 ```
 
@@ -219,11 +219,11 @@ print(f"Documents in collection: {collection.count()}")
 Should say 1. Now let's search:
 
 ```python
-results = collection.query(query_texts=["how do I weld aluminum?"], n_results=1)
+results = collection.query(query_texts=["who has the strongest arm?"], n_results=1)
 print(results["documents"][0][0][:80])
 ```
 
-It found it. Even though we asked "how do I weld aluminum?" and the document says "TIG welding aluminum requires argon shielding gas" -- completely different words, same meaning.
+It found it. Even though we asked "who has the strongest arm?" and the document says "Arm strength measured at 62 mph at the combine" -- completely different words, same meaning.
 
 ---
 
@@ -233,9 +233,9 @@ Let's add more documents one at a time and see how search improves. After each o
 
 ```python
 collection.add(
-    ids=["sop-002"],
-    documents=["CNC lathe setup: Load the program from the DNC server. Install the correct chuck jaw set per the setup sheet. Zero the X and Z axes using the tool setter. Run the first part at 50 percent feed rate override."],
-    metadatas=[{"department": "machining", "type": "SOP"}],
+    ids=["RB-201"],
+    documents=["Explosive runner with 4.38 40-yard dash. Exceptional vision through traffic and finds cutback lanes consistently. Averages 3.8 yards after contact per carry. Reliable pass catcher out of the backfield with 45 receptions last season. Weakness: needs to improve pass protection and blitz pickup."],
+    metadatas=[{"position": "RB", "report_type": "scouting"}],
 )
 print(f"Total docs: {collection.count()}")
 ```
@@ -243,48 +243,48 @@ print(f"Total docs: {collection.count()}")
 Query:
 
 ```python
-results = collection.query(query_texts=["how to set up a lathe"], n_results=1)
+results = collection.query(query_texts=["who is the best runner"], n_results=1)
 print(results["documents"][0][0][:80])
 print(results["metadatas"][0][0])
 ```
 
-Good -- it found the CNC doc. Now add a safety document:
+Good -- it found the RB doc. Now add a receiver report:
 
 ```python
 collection.add(
-    ids=["sop-003"],
-    documents=["Hydraulic press safety: Verify the light curtain is operational before each shift. Never bypass safety interlocks. Two-hand operation is required for all press operations over 5 tons. Inspect cylinder seals monthly for leaks."],
-    metadatas=[{"department": "press", "type": "safety"}],
+    ids=["WR-301"],
+    documents=["Crisp route runner with elite separation at the top of routes. Runs the full route tree from slot and outside. 4.42 speed with a 38-inch vertical leap. Reliable hands with a 2.1% drop rate. Weakness: struggles against physical press coverage at the line of scrimmage."],
+    metadatas=[{"position": "WR", "report_type": "scouting"}],
 )
 ```
 
-And a quality doc:
+And an offensive line report:
 
 ```python
 collection.add(
-    ids=["sop-004"],
-    documents=["Incoming material inspection: Check mill certificates against PO specifications. Verify material grade, dimensions, and surface condition. Use digital calipers for dimensional checks. Flag any non-conforming material with a red tag."],
-    metadatas=[{"department": "quality", "type": "SOP"}],
+    ids=["OL-401"],
+    documents=["Excellent anchor in pass protection with quick lateral movement to mirror speed rushers. 34-inch arm length provides leverage advantage. Run blocking grade: 82.5 out of 100. Allowed only 2 sacks in 580 pass-blocking snaps last season. Weakness: combo blocks to the second level."],
+    metadatas=[{"position": "OL", "report_type": "scouting"}],
 )
 ```
 
-A finishing doc:
+A defensive scheme report:
 
 ```python
 collection.add(
-    ids=["sop-005"],
-    documents=["Paint booth operation: Check air filtration system before starting. Maintain booth temperature between 65-80 degrees F and humidity below 50 percent. Apply primer coat at 8-10 mils wet thickness. Allow 30-minute flash-off between coats."],
-    metadatas=[{"department": "finishing", "type": "SOP"}],
+    ids=["DEF-501"],
+    documents=["Cover-3 base defense with single-high safety. Corners play press technique on early downs. Linebackers run pattern-match zone on 3rd and long. Aggressive blitz from nickel and dime personnel. Tendency: susceptible to crossing routes against zone coverage."],
+    metadatas=[{"position": "DEF", "report_type": "scheme"}],
 )
 ```
 
-And one more -- a forklift doc:
+And one more -- a special teams report:
 
 ```python
 collection.add(
-    ids=["sop-006"],
-    documents=["Forklift daily inspection checklist: Check tire condition and pressure. Test horn, lights, and backup alarm. Verify hydraulic fluid level. Check mast chains for wear. Test brakes before loading. Report any defects to maintenance before operating."],
-    metadatas=[{"department": "warehouse", "type": "safety"}],
+    ids=["SPEC-601"],
+    documents=["Punter averages 46.2 yards per punt with 4.1-second hang time. Directional kicking grade: elite. Coffin corner accuracy: 73% inside the 10-yard line. Kickoff specialist reaches the end zone on 88% of attempts. Coverage units allow 7.2 average return yards."],
+    metadatas=[{"position": "SPEC", "report_type": "scouting"}],
 )
 
 print(f"Total docs: {collection.count()}")
@@ -294,11 +294,11 @@ Now you have 6 documents. Let's run some searches. Before each one, predict whic
 
 ```python
 queries = [
-    "What are the safety rules for the press?",
-    "How do I check incoming steel quality?",
-    "What temperature should the paint booth be?",
-    "How do I inspect a forklift?",
-    "What gas do I use for aluminum welding?",
+    "Who has the strongest arm in this draft class?",
+    "Which prospect is the best pass catcher?",
+    "What are the coverage tendencies on third down?",
+    "Who grades out best in pass protection?",
+    "What are this receiver's measurables?",
 ]
 
 for q in queries:
@@ -308,105 +308,88 @@ for q in queries:
         doc = results["documents"][0][i]
         meta = results["metadatas"][0][i]
         dist = results["distances"][0][i]
-        print(f"  #{i+1} [{meta['department']:>10}] (distance: {dist:.3f}) {doc[:70]}...")
+        print(f"  #{i+1} [{meta['position']:>4}] (distance: {dist:.3f}) {doc[:70]}...")
 ```
 
-Notice something interesting with "How do I check incoming steel quality?" -- the document doesn't mention "steel" at all, just "material." But the model understands that incoming steel is a type of incoming material inspection. That's semantic search at work.
+Notice something interesting with "Which prospect is the best pass catcher?" -- the document doesn't mention "pass catcher" directly for the WR, but the RB report does mention "Reliable pass catcher out of the backfield." The model understands the semantic nuance. That's semantic search at work.
 
 ---
 
 ## Part 7: Metadata Filtering
 
-Sometimes you don't want to search everything. Maybe you only want safety documents, or only docs from the welding department.
+Sometimes you don't want to search everything. Maybe you only want scouting reports, or only reports for a specific position.
 
 ```python
-# Only search safety documents
+# Only search scouting reports
 results = collection.query(
-    query_texts=["inspection procedures"],
+    query_texts=["who has the best measurables"],
     n_results=3,
-    where={"type": "safety"},
+    where={"report_type": "scouting"},
 )
 
-print("Safety docs matching 'inspection procedures':")
+print("Scouting reports matching 'who has the best measurables':")
 for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-    print(f"  [{meta['department']}] {doc[:70]}...")
+    print(f"  [{meta['position']}] {doc[:70]}...")
 ```
 
-Try filtering by department:
+Try filtering by position:
 
 ```python
 results = collection.query(
-    query_texts=["how to prepare for work"],
+    query_texts=["pass coverage tendencies"],
     n_results=2,
-    where={"department": "welding"},
+    where={"report_type": "scheme"},
 )
 
-print("\nWelding dept docs matching 'how to prepare for work':")
+print("\nScheme reports matching 'pass coverage tendencies':")
 for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-    print(f"  [{meta['department']}] {doc[:70]}...")
+    print(f"  [{meta['position']}] {doc[:70]}...")
 ```
 
 You can also combine filters:
 
 ```python
 results = collection.query(
-    query_texts=["daily checks"],
+    query_texts=["speed and athleticism"],
     n_results=3,
-    where={"type": "safety"},
+    where={"report_type": "scouting"},
 )
 
-print("\nSafety docs matching 'daily checks':")
+print("\nScouting reports matching 'speed and athleticism':")
 for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-    print(f"  [{meta['department']}] {doc[:70]}...")
+    print(f"  [{meta['position']}] {doc[:70]}...")
 ```
 
-Metadata filtering is crucial for real systems. If an operator asks about welding, you probably don't want to return forklift docs even if they're somewhat semantically similar.
+Metadata filtering is crucial for real systems. If a scout asks about defensive schemes, you probably don't want to return special teams reports even if they're somewhat semantically similar.
 
 ---
 
 ## Part 8: Chunking -- Why Document Size Matters
 
-Here's a problem you'll hit immediately with real documents. Manufacturing SOPs can be pages long. If you embed the whole thing as one chunk, the embedding has to represent ALL of that information in 768 numbers. Details get lost.
+Here's a problem you'll hit immediately with real documents. Scouting reports can be pages long. If you embed the whole thing as one chunk, the embedding has to represent ALL of that information in 768 numbers. Details get lost.
 
-Let's see this in action. Here's a realistic SOP:
+Let's see this in action. Here's a comprehensive QB scouting report:
 
 ```python
-long_sop = """STANDARD OPERATING PROCEDURE: COMPLETE CNC MACHINING WORKFLOW
+long_report = """COMPREHENSIVE DRAFT SCOUTING REPORT: QUARTERBACK EVALUATION
 
-1. JOB PREPARATION
-Receive the work order from the scheduler. Review the engineering drawing and verify
-the revision level matches the work order. Check that raw material is available in
-the staging area and matches the material specification. Read all engineering notes
-and special instructions.
+1. ARM TALENT
+Strong arm with measured velocity of 62 mph at the combine. Can make every NFL throw including the deep out and the skinny post from the far hash. Shows good touch on deep balls, placing them over the receiver's outside shoulder. Velocity on short and intermediate throws is elite, with tight spirals even under duress.
 
-2. MACHINE SETUP
-Power on the CNC machine and allow the spindle to warm up for 10 minutes. Load the
-correct program from the DNC server. Verify program number against the setup sheet.
-Install the appropriate chuck or fixture per the setup sheet. Install cutting tools
-in the correct turret stations per the tool list.
+2. ACCURACY AND BALL PLACEMENT
+68% completion rate over three college seasons. Best in class on intermediate routes (15-25 yards) where he completes 74% of attempts. Anticipation throws to the sideline are a strength. Accuracy declines on deep shots beyond 30 yards, completing only 41% of attempts. Ball placement on back-shoulder fades needs refinement.
 
-3. TOOL SETTING
-Use the tool presetter or touch-off method to establish tool offsets. Verify each
-tool offset against the setup sheet values with tolerance of plus or minus 0.001 inches.
-Enter tool wear offsets as zero for new tools. Load tool life counters per the tool
-management plan.
+3. POCKET PRESENCE
+Comfortable in a collapsing pocket and navigates pressure with subtle movements. Climbs the pocket naturally when edge pressure closes in. Average time to throw: 2.3 seconds, among the fastest in this draft class. Under clean protection, completes 78% of passes. Under pressure, completion rate drops to 51%.
 
-4. FIRST ARTICLE INSPECTION
-Run the first part at 50 percent rapid and 75 percent feed override. After the first
-part is complete, remove it and perform dimensional inspection per the inspection plan.
-Record measurements on the First Article Inspection Report. If all dimensions are
-within tolerance, proceed to production. If any dimension is out of tolerance, adjust
-offsets and re-run.
+4. DECISION MAKING AND PROCESSING
+Reads the full field on play-action concepts but tends to lock onto his first read on quick-game passes. Interception-worthy play rate: 2.4%, slightly above average. Excels in the RPO game with correct read rate of 89%. Needs to improve reading Cover-2 rotations post-snap.
 
-5. PRODUCTION RUN
-After first article approval, run production at programmed speeds and feeds. Monitor
-the process for unusual sounds, vibrations, or chip formation. Check parts per the
-sampling plan, typically every 10th part. Keep the work area clean and organized.
+5. MOBILITY AND ATHLETICISM
+4.72 40-yard dash at the combine. Not a dynamic runner but extends plays when the pocket breaks down. Rushed for 342 yards and 5 touchdowns last season. Runs a controlled scramble style. Slides well and protects himself in the open field.
 
-6. DOCUMENTATION
-Complete the production traveler with actual quantities, times, and any issues.
-Submit completed first article report and traveler to quality. Log machine time in
-the MES system. Clean the machine and work area before the next job."""
+6. LEADERSHIP AND INTANGIBLES
+Team captain for two consecutive seasons. First to arrive, last to leave per coaches. Film study habits graded as elite by coaching staff. Commands the huddle with confidence. 4-1 record in games decided by one score or less."""
 ```
 
 First, let's embed the whole thing as one chunk and search:
@@ -416,9 +399,9 @@ First, let's embed the whole thing as one chunk and search:
 client = chromadb.Client()
 whole_doc = client.create_collection(name="whole_doc")
 
-whole_doc.add(ids=["full"], documents=[long_sop])
+whole_doc.add(ids=["full"], documents=[long_report])
 
-results = whole_doc.query(query_texts=["How do I set tool offsets?"], n_results=1)
+results = whole_doc.query(query_texts=["What is his completion rate under pressure?"], n_results=1)
 print("Whole doc result:")
 print(results["documents"][0][0][:100], "...")
 print(f"Distance: {results['distances'][0][0]:.3f}")
@@ -429,7 +412,7 @@ It returns the entire document. You get the answer somewhere in there, but also 
 ```python
 import re
 
-sections = re.split(r'\n(?=\d+\.)', long_sop.strip())
+sections = re.split(r'\n(?=\d+\.)', long_report.strip())
 sections = [s.strip() for s in sections if s.strip()]
 
 print(f"Number of sections: {len(sections)}")
@@ -447,28 +430,28 @@ for i, section in enumerate(sections):
     chunked_doc.add(
         ids=[f"section-{i}"],
         documents=[section],
-        metadatas=[{"section_index": i, "source": "SOP-CNC-001"}],
+        metadatas=[{"section_index": i, "source": "QB-EVAL-001"}],
     )
 ```
 
 Search the same question:
 
 ```python
-results = chunked_doc.query(query_texts=["How do I set tool offsets?"], n_results=1)
+results = chunked_doc.query(query_texts=["What is his completion rate under pressure?"], n_results=1)
 print("Chunked result:")
 print(results["documents"][0][0])
 print(f"Distance: {results['distances'][0][0]:.3f}")
 ```
 
-See the difference? Instead of the whole document, you get just the "TOOL SETTING" section -- the exact part that answers the question. And the distance score is probably lower (meaning closer match), because the embedding is focused on tool setting specifically.
+See the difference? Instead of the whole document, you get just the "POCKET PRESENCE" section -- the exact part that answers the question. And the distance score is probably lower (meaning closer match), because the embedding is focused on pocket presence specifically.
 
 Let's test a few more queries against both approaches:
 
 ```python
 test_queries = [
-    "What do I do after machining the first part?",
-    "How do I document my work?",
-    "What should I check before starting the machine?",
+    "How does he handle pre-snap reads?",
+    "What are his leadership qualities?",
+    "How fast is he in the 40-yard dash?",
 ]
 
 for query in test_queries:
@@ -487,7 +470,7 @@ The chunked version should consistently have lower distances (better matches) an
 
 ## Part 9: Comparing Chunking Strategies
 
-Section-based chunking worked great for that SOP because it had clear numbered sections. But not all documents are that clean. Let's compare three strategies:
+Section-based chunking worked great for that scouting report because it had clear numbered sections. But not all documents are that clean. Let's compare three strategies:
 
 ```python
 # Strategy 1: Fixed-size chunks (500 chars with overlap)
@@ -513,12 +496,12 @@ def chunk_paragraphs(text):
     return [p.strip() for p in paras if p.strip()]
 ```
 
-Let's see how each one splits our SOP:
+Let's see how each one splits our scouting report:
 
 ```python
-fixed = chunk_fixed(long_sop)
-sections = chunk_sections(long_sop)
-paragraphs = chunk_paragraphs(long_sop)
+fixed = chunk_fixed(long_report)
+sections = chunk_sections(long_report)
+paragraphs = chunk_paragraphs(long_report)
 
 print(f"Fixed-size:  {len(fixed)} chunks")
 for i, c in enumerate(fixed):
@@ -533,28 +516,28 @@ for i, c in enumerate(paragraphs):
     print(f"  {i}: {len(c)} chars -- '{c[:50]}...'")
 ```
 
-Notice how fixed-size chunks cut right through the middle of sections. Chunk 1 might end in the middle of "MACHINE SETUP" and chunk 2 starts mid-sentence. That's bad -- the embedding for that chunk is a mix of two different topics.
+Notice how fixed-size chunks cut right through the middle of sections. Chunk 1 might end in the middle of "ACCURACY AND BALL PLACEMENT" and chunk 2 starts mid-sentence. That's bad -- the embedding for that chunk is a mix of two different evaluation areas.
 
-Section-based keeps each topic together. For structured manufacturing documents (SOPs, work instructions, checklists), this is almost always the best approach.
+Section-based keeps each topic together. For structured scouting documents (player evaluations, scheme breakdowns, game reports), this is almost always the best approach.
 
-**Rule of thumb for manufacturing docs:**
+**Rule of thumb for scouting docs:**
 
 | Document Type | Best Chunking |
 |---|---|
-| SOPs with numbered sections | Section-based |
-| Work instructions | Section-based |
-| Equipment manuals | Chapter/section-based |
-| Maintenance logs | Entry-based (by date) |
+| Player evaluations with numbered sections | Section-based |
+| Game film breakdowns | Section-based |
+| Scheme/playbook analysis | Chapter/section-based |
+| Weekly scout team notes | Entry-based (by date) |
 | Unstructured notes/emails | Fixed-size with overlap |
 
 ---
 
-## Part 10: Full Exercise -- Build and Query a Manufacturing Knowledge Base
+## Part 10: Full Exercise -- Build and Query a Football Scouting Knowledge Base
 
 Time to put it all together. Save this as `05-embeddings-and-vectors/knowledge_base.py`:
 
 ```python
-"""Build a searchable manufacturing knowledge base with ChromaDB."""
+"""Build a searchable NFL scouting knowledge base with ChromaDB."""
 
 import chromadb
 from openai import OpenAI
@@ -574,51 +557,57 @@ def cosine_sim(a, b):
 
 # --- Set up ChromaDB ---
 client = chromadb.Client()
-kb = client.create_collection(name="manufacturing_kb")
+kb = client.create_collection(name="scouting_kb")
 
-# --- Manufacturing documents ---
+# --- NFL scouting documents ---
 docs = [
     {
-        "id": "weld-001",
-        "text": "TIG welding aluminum requires argon shielding gas at 15-20 CFH flow rate. "
-                "Clean the base metal with acetone and a stainless steel brush before welding. "
-                "Preheat thick sections (over 0.25 inch) to 300 degrees F.",
-        "meta": {"department": "welding", "type": "SOP", "equipment": "TIG welder"},
+        "id": "QB-101",
+        "text": "Pocket passer with elite accuracy. Completes 68% of passes with a 2.3-second "
+                "average release time. Excels on intermediate routes (15-25 yards) with anticipation "
+                "throws. Reads defenses pre-snap and adjusts protection. Arm strength measured at "
+                "62 mph at the combine. Weakness: locks onto first read under heavy pressure.",
+        "meta": {"position": "QB", "report_type": "scouting"},
     },
     {
-        "id": "cnc-001",
-        "text": "CNC lathe setup: Load the program from the DNC server. Install the correct "
-                "chuck jaw set per the setup sheet. Zero the X and Z axes using the tool setter. "
-                "Run the first part at 50 percent feed rate override.",
-        "meta": {"department": "machining", "type": "SOP", "equipment": "CNC lathe"},
+        "id": "RB-201",
+        "text": "Explosive runner with 4.38 40-yard dash. Exceptional vision through traffic and "
+                "finds cutback lanes consistently. Averages 3.8 yards after contact per carry. "
+                "Reliable pass catcher out of the backfield with 45 receptions last season. "
+                "Weakness: needs to improve pass protection and blitz pickup.",
+        "meta": {"position": "RB", "report_type": "scouting"},
     },
     {
-        "id": "press-001",
-        "text": "Hydraulic press safety: Verify the light curtain is operational before each "
-                "shift. Never bypass safety interlocks. Two-hand operation is required for all "
-                "press operations over 5 tons. Inspect cylinder seals monthly for leaks.",
-        "meta": {"department": "press", "type": "safety", "equipment": "hydraulic press"},
+        "id": "WR-301",
+        "text": "Crisp route runner with elite separation at the top of routes. Runs the full "
+                "route tree from slot and outside. 4.42 speed with a 38-inch vertical leap. "
+                "Reliable hands with a 2.1% drop rate. Weakness: struggles against physical press "
+                "coverage at the line of scrimmage.",
+        "meta": {"position": "WR", "report_type": "scouting"},
     },
     {
-        "id": "qa-001",
-        "text": "Incoming material inspection: Check mill certificates against PO specifications. "
-                "Verify material grade, dimensions, and surface condition. Use digital calipers "
-                "for dimensional checks. Flag any non-conforming material with a red tag.",
-        "meta": {"department": "quality", "type": "SOP", "equipment": "calipers"},
+        "id": "OL-401",
+        "text": "Excellent anchor in pass protection with quick lateral movement to mirror speed "
+                "rushers. 34-inch arm length provides leverage advantage. Run blocking grade: 82.5 "
+                "out of 100. Allowed only 2 sacks in 580 pass-blocking snaps last season. "
+                "Weakness: combo blocks to the second level.",
+        "meta": {"position": "OL", "report_type": "scouting"},
     },
     {
-        "id": "paint-001",
-        "text": "Paint booth operation: Check air filtration system before starting. Maintain "
-                "booth temperature between 65-80 degrees F and humidity below 50 percent. Apply "
-                "primer coat at 8-10 mils wet thickness. Allow 30-minute flash-off between coats.",
-        "meta": {"department": "finishing", "type": "SOP", "equipment": "paint booth"},
+        "id": "DEF-501",
+        "text": "Cover-3 base defense with single-high safety. Corners play press technique on "
+                "early downs. Linebackers run pattern-match zone on 3rd and long. Aggressive blitz "
+                "from nickel and dime personnel. Tendency: susceptible to crossing routes against "
+                "zone coverage.",
+        "meta": {"position": "DEF", "report_type": "scheme"},
     },
     {
-        "id": "fork-001",
-        "text": "Forklift daily inspection checklist: Check tire condition and pressure. Test "
-                "horn, lights, and backup alarm. Verify hydraulic fluid level. Check mast chains "
-                "for wear. Test brakes before loading. Report any defects to maintenance.",
-        "meta": {"department": "warehouse", "type": "safety", "equipment": "forklift"},
+        "id": "SPEC-601",
+        "text": "Punter averages 46.2 yards per punt with 4.1-second hang time. Directional "
+                "kicking grade: elite. Coffin corner accuracy: 73% inside the 10-yard line. "
+                "Kickoff specialist reaches the end zone on 88% of attempts. Coverage units "
+                "allow 7.2 average return yards.",
+        "meta": {"position": "SPEC", "report_type": "scouting"},
     },
 ]
 
@@ -634,11 +623,11 @@ print("SEMANTIC SEARCH DEMO")
 print("=" * 60)
 
 queries = [
-    "What gas do I need for welding?",
-    "How do I check if steel meets specs?",
-    "What PPE or safety checks for the hydraulic press?",
-    "What's the right temperature for painting?",
-    "How do I start up the CNC machine?",
+    "Who has the strongest arm in this draft class?",
+    "Which prospect is the best pass catcher?",
+    "What are the coverage tendencies on third down?",
+    "Who grades out best in pass protection?",
+    "What are this receiver's measurables?",
 ]
 
 for query in queries:
@@ -648,21 +637,21 @@ for query in queries:
         meta = results["metadatas"][0][i]
         doc = results["documents"][0][i]
         dist = results["distances"][0][i]
-        print(f"  #{i+1} [{meta['department']:>10} | {meta['type']:<6}] "
+        print(f"  #{i+1} [{meta['position']:>4} | {meta['report_type']:<8}] "
               f"(dist: {dist:.3f}) {doc[:65]}...")
 
 # --- Filtered search ---
 print(f"\n{'=' * 60}")
-print("FILTERED SEARCH: Safety docs only")
+print("FILTERED SEARCH: Scouting reports only")
 print("=" * 60)
 
 results = kb.query(
-    query_texts=["daily inspection checklist"],
+    query_texts=["who has the best measurables"],
     n_results=3,
-    where={"type": "safety"},
+    where={"report_type": "scouting"},
 )
 for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-    print(f"  [{meta['department']}] {doc[:70]}...")
+    print(f"  [{meta['position']}] {doc[:70]}...")
 
 # --- Embedding comparison ---
 print(f"\n{'=' * 60}")
@@ -670,10 +659,10 @@ print("EMBEDDING SIMILARITY DEMO")
 print("=" * 60)
 
 pairs = [
-    ("Inspect weld joints for cracks", "Check welding quality for defects"),
-    ("Inspect weld joints for cracks", "Order office supplies"),
-    ("Calibrate the pressure gauge", "The pressure meter needs calibration"),
-    ("Set up the CNC lathe", "Program the milling machine"),
+    ("Elite pocket passer with quick release", "Accurate QB who gets the ball out fast"),
+    ("Elite pocket passer with quick release", "Season ticket pricing and parking"),
+    ("Route runner with great separation", "Receiver who gets open consistently"),
+    ("Pass blocking technique", "Run blocking scheme"),
 ]
 
 for text1, text2 in pairs:
@@ -699,12 +688,12 @@ python knowledge_base.py
 
 - **Embeddings** turn text into numbers that capture meaning -- 768 numbers per sentence with nomic-embed-text
 - **Cosine similarity** measures how close two embeddings are (1.0 = identical meaning, 0.0 = unrelated)
-- **Semantic search beats keyword search** -- "check welding quality" matches "inspect weld joints" even with zero shared words
+- **Semantic search beats keyword search** -- "who's a good deep ball passer" matches a QB scouting report about "anticipation throws" even with zero shared words
 - **ChromaDB** stores embeddings and lets you search across many documents instantly
-- **Metadata filtering** narrows search to specific departments, document types, or equipment
-- **Chunking matters** -- section-based chunking is best for structured manufacturing SOPs; fixed-size is a fallback for unstructured text
+- **Metadata filtering** narrows search to specific positions, report types, or schemes
+- **Chunking matters** -- section-based chunking is best for structured scouting reports; fixed-size is a fallback for unstructured text
 - **Smaller, focused chunks** produce better search results than embedding entire documents
 
 ## Up Next: Module 06
 
-You now have the two core ingredients: structured LLM output (Module 04) and semantic document search (this module). Module 06 puts them together into a complete **RAG pipeline** -- load your documents, chunk them, embed them, search them, and feed the results to the LLM. That's the architecture behind your manufacturing task description system.
+You now have the two core ingredients: structured LLM output (Module 04) and semantic document search (this module). Module 06 puts them together into a complete **RAG pipeline** -- load your documents, chunk them, embed them, search them, and feed the results to the LLM. That's the architecture behind your NFL scouting and draft analysis system.
